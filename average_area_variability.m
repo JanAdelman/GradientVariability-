@@ -283,6 +283,28 @@ for k = 1:numel(names)
     ylabel('C_0 - \mu_0 [a.u.]')
     set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
     grid on
+    
+    % plot the relationship between CV_k and CV_lambda
+    figure(f8)
+    subplot(2, numel(names), k)
+    errorbar(normalised_diameter, CV_lambda, CV_lambda_SE, 'bo', 'LineWidth', LineWidth)
+    hold on
+    title((['CV_{' names{k} '}']))
+    xlabel(['diameter/\lambda'])
+    ylabel('CV_\lambda')
+    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
+    grid on
+
+    % plot the relationship between CV_k and CV_0
+    subplot(2, numel(names), k + numel(names))
+    errorbar(normalised_diameter, CV_0, CV_0_SE, 'bo', 'LineWidth', LineWidth)
+    hold on   
+    xlabel(['diameter/\lambda'])
+    ylabel('CV_0')
+    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
+    grid on
+
+    drawnow 
                 
        
 end
