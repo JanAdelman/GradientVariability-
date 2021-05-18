@@ -35,48 +35,47 @@ f10 = figure('Name', 'Individual gradients', 'Position', [0 0 2000 800]);
 
 %% vary cell size 
 f7 = figure('Name', 'Dependency of gradient parameters on cell size variability', 'Position', [0 0 2000 800]);
-%f8 = figure('Name', 'Dependency of gradient variability on cell size variability', 'Position', [0 0 2000 800]);
+f8 = figure('Name', 'Dependency of gradient variability on cell size variability', 'Position', [0 0 2000 800]);
 
-diameter = [0.49:0.5:4.9, 4.9:5:49.9]';
+diameter_array = [0.49:0.5:4.9, 4.9:5:49.9];
+%diameter_array = [4.9:5:49.9];
 
 CV = 0.3; % fixed CV for {p, d, D, all}
 CV_area = [0.5]; % mean cell area
 
-%mu_a = (diameter/2)^2*pi;
-%average_area_p = ncP * mu_a; % expected area if determinstic diameter for the patterning domain
-%average_area_p
-%average_area_s = ncS * mu_a; % expected area if determinstic diameter for the source domain
+mu_a = (diameter/2)^2*pi;
+average_area_p = ncP * mu_a; % expected area if determinstic diameter for the patterning domain
+average_area_s = ncS * mu_a; % expected area if determinstic diameter for the source domain
 %plot_CV = CV_area(1);
-
+plot_CV = diameter_array(1);
 
 % k = p, d, D, and all three together
 % names = {'p', 'd', 'D', 'all'};
 names = {'p'};
 for k = 1:numel(names)
     
-    filename = ['Cell_Area_vs_CV_' names{k} '.csv'];
+    filename = ['Mean_Cell_Area_Variability_vs_CV_' names{k} '.csv'];
     if names{k} == 'D'
-        filename = 'Cell_Area_CV_Diff.csv';
+        filename = 'Mean_Cell_Area_Variability_CV_Diff.csv';
     end
     
     if simulate
         
-        lambda = NaN(length(CV_area), 1);
-        lambda_SE = NaN(length(CV_area), 1);
-        C0 = NaN(length(CV_area), 1);
-        C0_SE = NaN(length(CV_area), 1);
-        CV_lambda = NaN(length(CV_area), 1);
-        CV_lambda_SE = NaN(length(CV_area), 1);
-        CV_0 = NaN(length(CV_area), 1);
-        CV_0_SE = NaN(length(CV_area), 1);
+        lambda = NaN(length(diameter_array), 1);
+        lambda_SE = NaN(length(diameter_array), 1);
+        C0 = NaN(length(diameter_array), 1);
+        C0_SE = NaN(length(diameter_array), 1);
+        CV_lambda = NaN(length(diameter_array), 1);
+        CV_lambda_SE = NaN(length(diameter_array), 1);
+        CV_0 = NaN(length(diameter_array), 1);
+        CV_0_SE = NaN(length(diameter_array), 1);
+        normalised_diameter = NaN(length(diameter_array), 1);
 
         % loop over patterning domain sizes
-        for i = 1:length(diameter)
-            
+        for i = 1:length(diameter_array)
+
             % calculate the area for varying diameters 
-            mu_a = (diameter(i)/2)^2*pi;
-            average_area_p = ncP * mu_a; % expected area patterning domain 
-            average_area_s = ncS * mu_a; % expected area source domain 
+            mu_a_varying = (diameter_array(i)/2)^2*pi; 
             
             fitted_lambda = NaN(nruns, 1);
             fitted_C0 = NaN(nruns, 1);
@@ -97,14 +96,21 @@ for k = 1:numel(names)
 
                 while sum(a_s_temp) < average_area_s 
                     
-                    rand_area = random(logndist(mu_a, mu_a * CV_area), 1, 1);
+                    rand_area = random(logndist(mu_a_varying, mu_a_varying * CV_area), 1, 1);
+                    
+                    if rand_area >= average_area_s
+                        
+                        a_s_temp = [a_s_temp, rand_area];
+                        a_s_temp
+                        
+                    end
                     
                     a_s_temp = [a_s_temp, rand_area];
                     
                 end
                           
-                assert(sum(a_s_temp(1:end-1)) < average_area_s, 'a_s_lower bigger than average area')
-                assert(sum(a_s_temp) > average_area_s, 'a_s_temp smaller than average area')
+                %assert(sum(a_s_temp(1:end-1)) < average_area_s, 'a_s_lower bigger than average area')
+                %assert(sum(a_s_temp) > average_area_s, 'a_s_temp smaller than average area')
                 
                 sum_s_upper = sum(a_s_temp);
                 sum_s_lower = sum(a_s_temp(1:end-1));
@@ -129,8 +135,6 @@ for k = 1:numel(names)
                 d_s = d_s_normalised * LS;
                 d_s = cumsum(d_s);                          
                 d_s = fliplr(d_s);
-                
-                d_s
 
                 % =========================================== %
                 % Area computations for the Patterning Domain %
@@ -139,7 +143,13 @@ for k = 1:numel(names)
                  % add cells as long as the overall arrea is not surpassed
                  while sum(a_p_temp) < average_area_p 
                     
-                    rand_area = random(logndist(mu_a, mu_a * CV_area), 1, 1);
+                    rand_area = random(logndist(mu_a_varying, mu_a_varying * CV_area), 1, 1);
+                    
+                     if rand_area >= average_area_p
+                        
+                        a_p_temp = [a_p_temp, rand_area];
+                    end
+                    
                     
                     a_p_temp = [a_p_temp, rand_area];
                     
@@ -147,8 +157,8 @@ for k = 1:numel(names)
                 
                 % add one more cell and check if the area is closer to the
                 % desired area compaed to the case wihout this last cell
-                 assert(sum(a_p_temp(1:end-1)) < average_area_p, 'a_p_lower bigger than average area')
-                 assert(sum(a_p_temp) > average_area_p, 'a_p_temp smaller than average area')
+                 %assert(sum(a_p_temp(1:end-1)) < average_area_p, 'a_p_lower bigger than average area')
+                 %assert(sum(a_p_temp) > average_area_p, 'a_p_temp smaller than average area')
                        
                 sum_p_upper = sum(a_p_temp);
                 sum_p_lower = sum(a_p_temp(1:end-1));
@@ -165,11 +175,116 @@ for k = 1:numel(names)
                 d_p = d_p_normalised * LP;
                 d_p = cumsum(d_p);
                 
-            end
+                d_p
+                
+                % ======================================================= %
+                % Solve the diffusion equation usiing  comstm grid vector
+                % + update the cell counts for both comparments 
+                % ======================================================= %
+                                                           
+                % create grid for the solver
+                x0 = [];
+                x0 = [x0, -d_s, 0, d_p];
+                
+                % initialise the solver
+                x0 = sort([x0 x0(2:end-1)]); % duplicate interface nodes
+                
+                nc = length(a_p) + length(a_s);
+                ncS = length(a_s);
+                ncP = length(a_p);
+                
+                options = bvpset('Vectorized', 'on', 'NMax', 100*nc, 'RelTol', tol, 'AbsTol', tol);
+                
+                % allocate memory fr the kineetic parameters 
+                p = mu_p * ones(nc, 1);
+                d = mu_d * ones(nc, 1);
+                D = mu_D * ones(nc, 1);
+                
+                % draw random kinetic parameters for each cell
+                if k == 1 || k == 4
+                    p = random(logndist(mu_p, mu_p * CV), nc, 1);
+                end
+                if k == 2 || k == 4
+                    d = random(logndist(mu_d, mu_d * CV), nc, 1);
+                end
+                if k == 3 || k == 4
+                    D = random(logndist(mu_D, mu_D * CV), nc, 1);
+                end
 
-        end 
+                % get initial solution
+                sol0 = bvpinit(x0, @y0);
+                
+                % solve the equation
+                sol = bvp4c(@odefun, @bcfun, sol0, options);
+
+                % fit an exponential in log space in the patterning domain
+                idx = find(sol.x >= 0);
+                
+                param = polyfit(sol.x(idx), log(sol.y(1,idx)), 1);
+                fitted_lambda(j) = -1/param(1);
+                fitted_C0(j) = exp(param(2));
+                  
+                % fit a hyperbolic cosine in log space in the patterning domain
+                
+                if fitcosh
+                    logcosh = @(p,x) p(2) + log(cosh((LP-x)/p(1)));
+                    mdl = fitnlm(sol.x(idx), log(sol.y(1,idx)), logcosh, [fitted_lambda(j) log(fitted_C0(j)) - log(cosh(LP/fitted_lambda(j)))], 'Options', fitopt);
+                    fitted_lambda(j) = mdl.Coefficients.Estimate(1);
+                    fitted_C0(j) = exp(mdl.Coefficients.Estimate(2)) * cosh(LP/fitted_lambda(j));
+                end
+                
+                if diameter_array(1) == plot_CV
+                    figure(f10)
+                    for s = 1:2
+                        subplot(2, numel(names), k + (s-1)*numel(names))
+                        hold all
+                        plot(sol.x, sol.y(1,:), 'LineWidth', LineWidth)
+                    end
+                end
+                
+            end
+            
+            % determine the CV of the decay length and the amplitude over the independent runs
+            % and also their standard errors from bootstrapping          
+            lambda(i) = mean(fitted_lambda);
+            lambda_SE(i) = SEfun(fitted_lambda);
+            C0(i) = mean(fitted_C0);
+            C0_SE(i) = SEfun(fitted_C0);
+            CV_lambda(i) = CVfun(fitted_lambda);
+            CV_lambda_SE(i) = std(bootstrp(nboot, CVfun, fitted_lambda));
+            CV_0(i) = CVfun(fitted_C0);
+            CV_0_SE(i) = std(bootstrp(nboot, CVfun, fitted_C0));
+            normalised_diameter(i) = diameter_array(i)/lambda(i)
+        end
         
-    end 
+        if write
+            writetable(table(normalised_diameter, lambda, lambda_SE, C0, C0_SE, CV_lambda, CV_lambda_SE, CV_0, CV_0_SE), filename);
+        end        
+        
+    end
+    
+    % plot the relationship between CV_area and lambda
+    figure(f7)
+    subplot(2, numel(names), k)
+    errorbar(normalised_diameter, lambda, lambda_SE, 'bo', 'LineWidth', LineWidth)
+    hold on
+    title((['CV_{' names{k} '}']))
+    xlabel(['diameter/\lambda'])
+    ylabel('\lambda [µm]')
+    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log')
+    grid on
+    
+    % plot the relationship between CV_area and C_0
+    subplot(2, numel(names), k + numel(names))
+    errorbar(normalised_diameter, abs(C0-C(0)), C0_SE, 'bo', 'LineWidth', LineWidth)
+    hold on
+    title((['CV_{' names{k} '}']))
+    xlabel(['diameter/\lambda'])
+    ylabel('C_0 - \mu_0 [a.u.]')
+    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
+    grid on
+                
+       
 end
  %% functions for the ODE
 % reaction-diffusion equation
