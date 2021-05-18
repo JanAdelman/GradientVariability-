@@ -12,7 +12,7 @@ FontSize = 18;
 
 % parameters
 tol = 1e-10; % numerical tolerance for solver and fitting
-nruns = 2; % number of independent simulation runs
+nruns = 1000; % number of independent simulation runs
 nboot = 1e4; % number of bootstrap samples for error estimation
 diameter = 4.9; % cell diameter [µm]
 mu_D = 0.033; % mean morphogen diffusion constant [µm^2/s]
@@ -38,7 +38,7 @@ f10 = figure('Name', 'Individual gradients', 'Position', [0 0 2000 800]);
 
 %% vary cell size 
 f7 = figure('Name', 'Dependency of gradient parameters on cell size variability', 'Position', [0 0 2000 800]);
-%f8 = figure('Name', 'Dependency of gradient variability on cell size variability', 'Position', [0 0 2000 800]);
+f8 = figure('Name', 'Dependency of gradient variability on cell size variability', 'Position', [0 0 2000 800]);
 
 
 CV = 0.3; % fixed CV for {p, d, D, all}
@@ -206,8 +206,7 @@ for k = 1:numel(names)
                 param = polyfit(sol.x(idx), log(sol.y(1,idx)), 1);
                 fitted_lambda(j) = -1/param(1);
                 fitted_C0(j) = exp(param(2));
-            
-        
+                   
                 % fit a hyperbolic cosine in log space in the patterning domain
                 
                 if fitcosh
@@ -261,12 +260,32 @@ for k = 1:numel(names)
     subplot(2, numel(names), k + numel(names))
     errorbar(CV_area, abs(C0-C(0)), C0_SE, 'bo', 'LineWidth', LineWidth)
     hold on
-    title((['CV_{' names{k} '}']))
     xlabel(['CV_{area}'])
     ylabel('C_0 - \mu_0 [a.u.]')
     set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
     grid on
-        
+    
+        % plot the relationship between CV_k and CV_lambda
+    figure(f8)
+    subplot(2, numel(names), k)
+    errorbar(CV_area, CV_lambda, CV_lambda_SE, 'bo', 'LineWidth', LineWidth)
+    hold on
+    title((['CV_{' names{k} '}']))
+    xlabel(['CV_{area}'])
+    ylabel('CV_\lambda')
+    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
+    grid on
+
+    % plot the relationship between CV_k and CV_0
+    subplot(2, numel(names), k + numel(names))
+    errorbar(CV_area, CV_0, CV_0_SE, 'bo', 'LineWidth', LineWidth)
+    hold on   
+    xlabel(['CV_{area}'])
+    ylabel('CV_0')
+    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
+    grid on
+
+    drawnow    
 end
 %% functions for the ODE
 % reaction-diffusion equation
