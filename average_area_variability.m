@@ -9,7 +9,7 @@ FontSize = 18;
 
 % parameters
 tol = 1e-10; % numerical tolerance for solver and fitting
-nruns = 2; % number of independent simulation runs
+nruns = 100; % number of independent simulation runs
 nboot = 1e4; % number of bootstrap samples for error estimation
 diameter = 4.9; % cell diameter [µm]
 mu_D = 0.033; % mean morphogen diffusion constant [µm^2/s]
@@ -174,8 +174,6 @@ for k = 1:numel(names)
                 d_p_normalised = d_p /sum(d_p);
                 d_p = d_p_normalised * LP;
                 d_p = cumsum(d_p);
-                
-                d_p
                 
                 % ======================================================= %
                 % Solve the diffusion equation usiing  comstm grid vector
