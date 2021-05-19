@@ -9,7 +9,7 @@ FontSize = 18;
 
 % parameters
 tol = 1e-10; % numerical tolerance for solver and fitting
-nruns = 2; % number of independent simulation runs
+nruns = 20; % number of independent simulation runs
 nboot = 1e4; % number of bootstrap samples for error estimation
 diameter = 4.9; % cell diameter [µm]
 mu_D = 0.033; % mean morphogen diffusion constant [µm^2/s]
@@ -50,8 +50,8 @@ average_arel_s = ncS * mu_a; % expected area if determinstic diameter for the so
 plot_CV = diameter_array(1);
 
 % k = p, d, D, and all three together
-% names = {'p', 'd', 'D', 'all'};
-names = {'p'};
+names = {'p', 'd', 'D', 'all'};
+%names = {'p'};
 for k = 1:numel(names)
     
     filename = ['Mean_Cell_Area_Variability_vs_CV_' names{k} '.csv'];
@@ -69,7 +69,8 @@ for k = 1:numel(names)
         CV_lambdl_sE = NaN(length(diameter_array), 1);
         CV_0 = NaN(length(diameter_array), 1);
         CV_0_SE = NaN(length(diameter_array), 1);
-        normalised_diameter = NaN(length(diameter_array), 1);
+        diameter_lambda = NaN(length(diameter_array), 1);
+        diameter_lambda_SE = NaN(length(diameter_array), 1);
 
         % loop over patterning domain sizes
         for i = 1:length(diameter_array)
@@ -79,6 +80,7 @@ for k = 1:numel(names)
             
             fitted_lambda = NaN(nruns, 1);
             fitted_C0 = NaN(nruns, 1);
+            diameter_lambda_nruns = NaN(nruns, 1);
 
             % loop over several independent runs
             for j = 1:nruns
@@ -133,6 +135,7 @@ for k = 1:numel(names)
                 l_s = d_s_normalised * LS;
                 l_s = cumsum(l_s);                          
                 l_s = fliplr(l_s);
+  
 
                 % =========================================== %
                 % Area computations for the Patterning Domain %
@@ -172,6 +175,7 @@ for k = 1:numel(names)
                 d_p_normalised = l_p /sum(l_p);
                 l_p = d_p_normalised * LP;
                 l_p = cumsum(l_p);
+               
                 
                 % ======================================================= %
                 % Solve the diffusion equation usiing  comstm grid vector
@@ -181,6 +185,8 @@ for k = 1:numel(names)
                 % create grid for the solver
                 x0 = [];
                 x0 = [x0, -l_s, 0, l_p];
+                
+                n_c = length(l_s) + length(l_p);
                 
                 % initialise the solver
                 x0 = sort([x0 x0(2:end-1)]); % duplicate interface nodes
@@ -228,6 +234,10 @@ for k = 1:numel(names)
                     fitted_lambda(j) = mdl.Coefficients.Estimate(1);
                     fitted_C0(j) = exp(mdl.Coefficients.Estimate(2)) * cosh(LP/fitted_lambda(j));
                 end
+               
+                average_diam = (LS + LP)/n_c;
+                
+                diameter_lambda_nruns(j) = average_diam/fitted_lambda(j);
                 
                 if diameter_array(1) == plot_CV
                     figure(f10)
@@ -250,19 +260,30 @@ for k = 1:numel(names)
             CV_lambdl_sE(i) = std(bootstrp(nboot, CVfun, fitted_lambda));
             CV_0(i) = CVfun(fitted_C0);
             CV_0_SE(i) = std(bootstrp(nboot, CVfun, fitted_C0));
-            normalised_diameter(i) = diameter_array(i)/lambda(i)
+            diameter_lambda(i) = mean(diameter_lambda_nruns);
+            diameter_lambda_SE(i) = SEfun(diameter_lambda_nruns);
+
+
         end
         
         if write
-            writetable(table(normalised_diameter, lambda, lambdl_sE, C0, C0_SE, CV_lambda, CV_lambdl_sE, CV_0, CV_0_SE), filename);
+            writetable(table(diameter_lambda, diameter_lambda_SE, lambda, lambdl_sE, C0, C0_SE, CV_lambda, CV_lambdl_sE, CV_0, CV_0_SE), filename);
         end        
         
     end
     
+    %define the error bars    
+    xpos = diameter_lambda_SE;
+    xneg = diameter_lambda_SE;
+    ypos_lambda = lambdl_sE;
+    yneg_lambda = lambdl_sE;
+    ypos_c0 = CV_0_SE;
+    yneg_c0 = CV_0_SE;
+    
     % plot the relationship between CV_area and lambda
     figure(f7)
     subplot(2, numel(names), k)
-    errorbar(normalised_diameter, lambda, lambdl_sE, 'bo', 'LineWidth', LineWidth)
+    errorbar(diameter_lambda, lambda, yneg_lambda, ypos_lambda, xneg, xpos, 'bo', 'LineWidth', LineWidth)
     hold on
     title((['CV_{' names{k} '}']))
     xlabel(['diameter/\lambda'])
@@ -272,7 +293,7 @@ for k = 1:numel(names)
     
     % plot the relationship between CV_area and C_0
     subplot(2, numel(names), k + numel(names))
-    errorbar(normalised_diameter, abs(C0-C(0)), C0_SE, 'bo', 'LineWidth', LineWidth)
+    errorbar(diameter_lambda, abs(C0-C(0)), yneg_c0, ypos_c0, xneg, xpos, 'bo', 'LineWidth', LineWidth)
     hold on
     title((['CV_{' names{k} '}']))
     xlabel(['diameter/\lambda'])
@@ -283,7 +304,7 @@ for k = 1:numel(names)
     % plot the relationship between CV_k and CV_lambda
     figure(f8)
     subplot(2, numel(names), k)
-    errorbar(normalised_diameter, CV_lambda, CV_lambdl_sE, 'bo', 'LineWidth', LineWidth)
+    errorbar(diameter_lambda, CV_lambda, yneg_lambda, ypos_lambda, xneg, xpos, 'bo', 'LineWidth', LineWidth)
     hold on
     title((['CV_{' names{k} '}']))
     xlabel(['diameter/\lambda'])
@@ -293,7 +314,7 @@ for k = 1:numel(names)
 
     % plot the relationship between CV_k and CV_0
     subplot(2, numel(names), k + numel(names))
-    errorbar(normalised_diameter, CV_0, CV_0_SE, 'bo', 'LineWidth', LineWidth)
+    errorbar(diameter_lambda, CV_0, yneg_c0, ypos_c0, xneg, xpos, 'bo', 'LineWidth', LineWidth)
     hold on   
     xlabel(['diameter/\lambda'])
     ylabel('CV_0')
