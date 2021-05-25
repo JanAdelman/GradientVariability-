@@ -22,7 +22,7 @@ ncP = 50; % number of cells in the patterning domain
 %CV = [0.01:0.01:0.09 0.1:0.05:0.95 1:0.5:10]'; % coefficient of variation of the kinetic parameters
 CV = [0.0];
 %plot_CV = CV(14); % plot the gradients for this CV value
-CV_area = 0;
+CV_area = 0.5;
 % analytical deterministic solution
 nc = ncS + ncP; % total number of cells
 LS = ncS * diameter; % source length
@@ -38,9 +38,9 @@ close all
 f1 = figure('Name', 'Individual gradients', 'Position', [0 0 2000 800]);
 %names = {'p', 'd', 'D', 'all'};
 names = {'p'};
+
 % get the readout positions for the gradient 
 readout_pos = [0:LP/10:LP];
-
 %% vary molecular noise
 
 f2 = figure('Name', 'Dependency of gradient parameters on molecular noise', 'Position', [0 0 2000 800]);
@@ -193,55 +193,73 @@ for k = 1:numel(names)
                 
                 % solve the equation
                 sol = bvp4c(@odefun, @bcfun, sol0, options);
-                idx = find(sol.x >= 0);
                 
                 % initialise the start location at the beginning of ther
                 % patterning domain 
                 cell_beginning = 0;
                 
+                % array to store numerical integration results
+                y_sol = [];
+                % use the beginning of each cell as the x-coordinate 
+                x_sol = [0, l_p(1:end-1)];
+                              
                 % loop through the  cell and extract the solutions for each
                 % cell separately. Then use the trapezoid method to
                 % numerically integrate and find the mean morphogen
-                % gradient concentration over one cell. 
+                % gradient concentration over one cell.
+                
                 for cell_loc = 1:ncP
                     
                     % set the upper interval as the end of a cell 
                     cell_end = l_p(cell_loc);
                     
                     % define interval where to extract solutions 
-                    logical_indexes = (sol.x <= cell_end) & (sol.x >= cell_beginning)
+                    logical_indexes = (sol.x <= cell_end) & (sol.x >= cell_beginning);
                     % extract indices of the desired solutions 
                     interval = find(logical_indexes);
                     
                     % get lenght of the cell for normalisation
-                    cell_length = cell_end - cell_beginning 
-                    
-                    
+                    cell_length = cell_end - cell_beginning;
+                                    
                     % set the lower interval for the next iteration as the
                     % current end of the cell 
                     cell_beginning = cell_end;
                     
                     % get the x and y solution 
-                    x_sol = sol.x(interval);
-                    y_sol = sol.y(1, interval);
+                    X = sol.x(interval);
+                    Y = sol.y(1, interval);
                     
+                    % get the average concentration per cell (thus
+                    % normalised by cell length) 
+                    trapz_sol = trapz(X,Y)/cell_length;
                     
+                    % append the solution for each cell to the solution
+                    % array 
+                    y_sol = [y_sol, trapz_sol];
                     
                 end 
-
+                
                 % fit an exponential in log space in the patterning domain
-                idx = find(sol.x >= 0);
-                param = polyfit(sol.x(idx), log(sol.y(1,idx)), 1);
+                param = polyfit(x_sol, log(y_sol), 1);
                 fitted_lambda(j) = -1/param(1);
                 fitted_C0(j) = exp(param(2));
+                
+                 fitted_lambda(j)
+                 fitted_C0(j)
 
                 % fit a hyperbolic cosine in log space in the patterning domain
                 if fitcosh
                     logcosh = @(p,x) p(2) + log(cosh((LP-x)/p(1)));
-                    mdl = fitnlm(sol.x(idx), log(sol.y(1,idx)), logcosh, [fitted_lambda(j) log(fitted_C0(j)) - log(cosh(LP/fitted_lambda(j)))], 'Options', fitopt);
+                    mdl = fitnlm(x_sol, log(y_sol), logcosh, [fitted_lambda(j) log(fitted_C0(j)) - log(cosh(LP/fitted_lambda(j)))], 'Options', fitopt);
                     fitted_lambda(j) = mdl.Coefficients.Estimate(1);
                     fitted_C0(j) = exp(mdl.Coefficients.Estimate(2)) * cosh(LP/fitted_lambda(j));
+                    
                 end
+                
+                % with the fitted values calculate the gradient and
+                % evaluate, at different locations 
+                c
+                
                 
                 % plot the solution
                 %{
