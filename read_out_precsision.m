@@ -9,7 +9,7 @@ FontSize = 18;
 
 % parameters
 tol = 1e-10; % numerical tolerance for solver and fitting
-nruns = 100; % number of independent simulation runs
+nruns = 20; % number of independent simulation runs
 nboot = 1e3; % number of bootstrap samples for error estimation
 diameter = 4.9; % cell diameter [µm]
 mu_D = 0.033; % mean morphogen diffusion constant [µm^2/s]
@@ -246,37 +246,24 @@ for k = 1:numel(names)
                     
                 end 
                 
-                % fit an exponential in log space in the patterning domain
-                param = polyfit(x_sol, log(y_sol), 1);
-                fitted_lambda(j) = -1/param(1);
-                fitted_C0(j) = exp(param(2));
-                
-                % fit a hyperbolic cosine in log space in the patterning domain
-                if fitcosh
-                    logcosh = @(p,x) p(2) + log(cosh((LP-x)/p(1)));
-                    mdl = fitnlm(x_sol, log(y_sol), logcosh, [fitted_lambda(j) log(fitted_C0(j)) - log(cosh(LP/fitted_lambda(j)))], 'Options', fitopt);
-                    fitted_lambda(j) = mdl.Coefficients.Estimate(1);
-                    fitted_C0(j) = exp(mdl.Coefficients.Estimate(2)) * cosh(LP/fitted_lambda(j));
+                piecewise_const = [];
+                for idx = 1:length(readout_pos)
+    
+                    if readout_pos(idx) >= x_sol(end)
+         
+                        B = length(x_sol);
+                        piecewise_const = [piecewise_const, y_sol(B)];
+                    end 
+                    
+                    B = find(readout_pos(idx) < x_sol);
+                    B = min(B)-1;
+                    
+                    piecewise_const = [piecewise_const, y_sol(B)];            
+                    
                     
                 end
+                conc_per_iteration(j, :) = piecewise_const
                 
-                % with the fitted values calculate the gradient and
-                % evaluate, at different locations
-                x = linspace(0,LP,100);
-                
-                conc_per_iteration(j, :) = fitted_C0(j)*exp(-readout_pos/fitted_lambda(j));
-                
-                % plot the solution
-                %{
-                if CV(i) == plot_CV
-                    figure(f1)
-                    for s = 1:2
-                        subplot(2, numel(names), k + (s-1)*numel(names))
-                        hold all
-                        plot(sol.x, sol.y(1,:), 'LineWidth', LineWidth)
-                    end
-                end
-                %}
             end
             
             % calculate the mean concentration at each position        
@@ -285,18 +272,7 @@ for k = 1:numel(names)
             % calculate the standard error at each position 
             conc_SE(i, :) = std(conc_per_iteration,[],1)/sqrt(size(conc_per_iteration,1));
 
-            % determine the CV of the decay length and the amplitude over the independent runs
-            % and also their standard errors from bootstrapping
-            %{
-            lambda(i) = mean(fitted_lambda);
-            lambda_SE(i) = SEfun(fitted_lambda);
-            C0(i) = mean(fitted_C0);
-            C0_SE(i) = SEfun(fitted_C0);
-            CV_lambda(i) = CVfun(fitted_lambda);
-            CV_lambda_SE(i) = std(bootstrp(nboot, CVfun, fitted_lambda));
-            CV_0(i) = CVfun(fitted_C0);
-            CV_0_SE(i) = std(bootstrp(nboot, CVfun, fitted_C0));
-            %}
+           
         end
         
         % write data
@@ -305,18 +281,7 @@ for k = 1:numel(names)
         end
     else
         % read data
-        %{
-        T = readtable(filename);
-        CV = T.CV;
-        lambda = T.lambda;
-        lambda_SE = T.lambda_SE;
-        C0 = T.C0;
-        C0_SE = T.C0_SE;
-        CV_lambda = T.CV_lambda;
-        CV_lambda_SE = T.CV_lambda_SE;
-        CV_0 = T.CV_0;
-        CV_0_SE = T.CV_0_SE;
-        %}
+      
     end
    
     % plot the relationship between CV_k and lambda
