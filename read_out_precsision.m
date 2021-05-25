@@ -9,7 +9,7 @@ FontSize = 18;
 
 % parameters
 tol = 1e-10; % numerical tolerance for solver and fitting
-nruns = 2; % number of independent simulation runs
+nruns = 100; % number of independent simulation runs
 nboot = 1e3; % number of bootstrap samples for error estimation
 diameter = 4.9; % cell diameter [µm]
 mu_D = 0.033; % mean morphogen diffusion constant [µm^2/s]
@@ -20,7 +20,7 @@ mu_p = mu_d; % mean morphogen production rate [substance/(µm^3*s)]
 ncS = 5; % number of cells in the source domain
 ncP = 50; % number of cells in the patterning domain
 %CV = [0.01:0.01:0.09 0.1:0.05:0.95 1:0.5:10]'; % coefficient of variation of the kinetic parameters
-CV = [0.0];
+CV = [0.3];
 %plot_CV = CV(14); % plot the gradients for this CV value
 CV_area = 0.5;
 % analytical deterministic solution
@@ -35,16 +35,16 @@ SEfun = @(x) nanstd(x) / sqrt(sum(~isnan(x)));
 fitopt = statset('TolFun', tol, 'TolX', tol);
 
 close all
-f1 = figure('Name', 'Individual gradients', 'Position', [0 0 2000 800]);
+%f1 = figure('Name', 'Individual gradients', 'Position', [0 0 2000 800]);
 %names = {'p', 'd', 'D', 'all'};
 names = {'p'};
 
 % get the readout positions for the gradient 
-readout_pos = [0:LP/10:LP];
+readout_pos = [0:LP/100:LP];
 %% vary molecular noise
 
-f2 = figure('Name', 'Dependency of gradient parameters on molecular noise', 'Position', [0 0 2000 800]);
-f3 = figure('Name', 'Dependency of gradient variability on molecular noise', 'Position', [0 0 2000 800]);
+f2 = figure('Name', 'Spread of Variability in Concentration for different Positions', 'Position', [0 0 2000 800]);
+%f3 = figure('Name', 'Dependency of gradient variability on molecular noise', 'Position', [0 0 2000 800]);
                     
 % k = p, d, D, and all three together
 for k = 1:numel(names)
@@ -54,6 +54,10 @@ for k = 1:numel(names)
     end
         
     if simulate
+        
+        conc = NaN(length(CV), length(readout_pos));
+        conc_SE = NaN(length(CV), length(readout_pos));
+        %{
         lambda = NaN(length(CV), 1);
         lambda_SE = NaN(length(CV), 1);
         C0 = NaN(length(CV), 1);
@@ -62,12 +66,15 @@ for k = 1:numel(names)
         CV_lambda_SE = NaN(length(CV), 1);
         CV_0 = NaN(length(CV), 1);
         CV_0_SE = NaN(length(CV), 1);
-
+        %}
+        
         % loop over variabilities
         for i = 1:length(CV)
+            
             % loop over several independent runs
             fitted_lambda = NaN(nruns, 1);
             fitted_C0 = NaN(nruns, 1);
+            conc_per_iteration = NaN(nruns, length(readout_pos));
             
             for j = 1:nruns
                 
@@ -144,9 +151,6 @@ for k = 1:numel(names)
                 
                 % add one more cell and check if the area is closer to the
                 % desired area compaed to the case wihout this last cell
-                 %assert(sum(l_p_temp(1:end-1)) < average_arel_p, 'l_p_lower bigger than average area')
-                 %assert(sum(l_p_temp) > average_arel_p, 'l_p_temp smaller than average area')
-                       
                 sum_p_upper = sum(l_p_temp);
                 sum_p_lower = sum(l_p_temp(1:end-1));
                         
@@ -187,6 +191,9 @@ for k = 1:numel(names)
                 if k == 3 || k == 4
                     D = random(logndist(mu_D, mu_D * CV(i)), nc, 1);
                 end
+                p = random(logndist(mu_p, mu_p * CV(i)), nc, 1);
+                d = random(logndist(mu_d, mu_d * CV(i)), nc, 1); 
+                D = random(logndist(mu_D, mu_D * CV(i)), nc, 1);
                 
                 % get initial solution 
                 sol0 = bvpinit(x0, @y0);
@@ -244,9 +251,6 @@ for k = 1:numel(names)
                 fitted_lambda(j) = -1/param(1);
                 fitted_C0(j) = exp(param(2));
                 
-                 fitted_lambda(j)
-                 fitted_C0(j)
-
                 % fit a hyperbolic cosine in log space in the patterning domain
                 if fitcosh
                     logcosh = @(p,x) p(2) + log(cosh((LP-x)/p(1)));
@@ -257,9 +261,10 @@ for k = 1:numel(names)
                 end
                 
                 % with the fitted values calculate the gradient and
-                % evaluate, at different locations 
-                c
+                % evaluate, at different locations
+                x = linspace(0,LP,100);
                 
+                conc_per_iteration(j, :) = fitted_C0(j)*exp(-readout_pos/fitted_lambda(j));
                 
                 % plot the solution
                 %{
@@ -273,9 +278,16 @@ for k = 1:numel(names)
                 end
                 %}
             end
+            
+            % calculate the mean concentration at each position        
+            conc(i, :) = mean(conc_per_iteration);
+            
+            % calculate the standard error at each position 
+            conc_SE(i, :) = std(conc_per_iteration,[],1)/sqrt(size(conc_per_iteration,1));
 
             % determine the CV of the decay length and the amplitude over the independent runs
             % and also their standard errors from bootstrapping
+            %{
             lambda(i) = mean(fitted_lambda);
             lambda_SE(i) = SEfun(fitted_lambda);
             C0(i) = mean(fitted_C0);
@@ -284,14 +296,16 @@ for k = 1:numel(names)
             CV_lambda_SE(i) = std(bootstrp(nboot, CVfun, fitted_lambda));
             CV_0(i) = CVfun(fitted_C0);
             CV_0_SE(i) = std(bootstrp(nboot, CVfun, fitted_C0));
+            %}
         end
         
         % write data
         if write
-            writetable(table(CV, lambda, lambda_SE, C0, C0_SE, CV_lambda, CV_lambda_SE, CV_0, CV_0_SE), filename);
+            %writetable(table(CV, lambda, lambda_SE, C0, C0_SE, CV_lambda, CV_lambda_SE, CV_0, CV_0_SE), filename);
         end
     else
         % read data
+        %{
         T = readtable(filename);
         CV = T.CV;
         lambda = T.lambda;
@@ -302,18 +316,20 @@ for k = 1:numel(names)
         CV_lambda_SE = T.CV_lambda_SE;
         CV_0 = T.CV_0;
         CV_0_SE = T.CV_0_SE;
+        %}
     end
-
+   
     % plot the relationship between CV_k and lambda
     figure(f2)
-    subplot(2, numel(names), k)
-    errorbar(CV, lambda, lambda_SE, 'bo', 'LineWidth', LineWidth)
+    subplot(1, numel(names), k)
+    errorbar(readout_pos, conc(i, :), conc_SE(i, :), 'bo', 'LineWidth', LineWidth)
     hold on
-    xlabel(['CV_{' names{k} '}'])
-    ylabel('\lambda [µm]')
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log')
+    xlabel(['Position [µm]'])
+    ylabel('Concentration')
+    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear')
     grid on
     
+    %{
     % plot the relationship between CV_k and C_0
     subplot(2, numel(names), k + numel(names))
     errorbar(CV, abs(C0-C(0)), C0_SE, 'bo', 'LineWidth', LineWidth)
@@ -343,6 +359,7 @@ for k = 1:numel(names)
     grid on
 
     drawnow
+    %}
 end
 
  %% functions for the ODE
