@@ -9,8 +9,8 @@ FontSize = 18;
 
 % parameters
 tol = 1e-10; % numerical tolerance for solver and fitting
-nruns = 20; % number of independent simulation runs
-nboot = 1e3; % number of bootstrap samples for error estimation
+nruns = 100; % number of independent simulation runs
+nboot = 1e4; % number of bootstrap samples for error estimation
 diameter = 4.9; % cell diameter [µm]
 mu_D = 0.033; % mean morphogen diffusion constant [µm^2/s]
 mu_lambda = 19.26; % mean gradient length [µm]
@@ -29,8 +29,9 @@ LS = ncS * diameter; % source length
 LP = ncP * diameter; % pattern length
 C = @(x) mu_p/mu_d * ((x<0) .* (1-cosh(x/mu_lambda)) + sinh(LS/mu_lambda) / sinh((LS+LP)/mu_lambda) * cosh((LP-x)/mu_lambda));
 
-CVfun = @(x) nanstd(x) / nanmean(x);
-SEfun = @(x) nanstd(x) / sqrt(sum(~isnan(x)));
+%CVfun = @(x) nanstd(x) / nanmean(x);
+CVfun = @(x) nanstd(x) ./ nanmean(x);
+SEfun = @(x) nanstd(x) ./ sqrt(sum(~isnan(x)));
 
 fitopt = statset('TolFun', tol, 'TolX', tol);
 
@@ -57,23 +58,13 @@ for k = 1:numel(names)
         
         conc = NaN(length(CV), length(readout_pos));
         conc_SE = NaN(length(CV), length(readout_pos));
-        %{
-        lambda = NaN(length(CV), 1);
-        lambda_SE = NaN(length(CV), 1);
-        C0 = NaN(length(CV), 1);
-        C0_SE = NaN(length(CV), 1);
-        CV_lambda = NaN(length(CV), 1);
-        CV_lambda_SE = NaN(length(CV), 1);
-        CV_0 = NaN(length(CV), 1);
-        CV_0_SE = NaN(length(CV), 1);
-        %}
-        
+        conc_CV = NaN(length(CV), length(readout_pos));
+        conc_CV_SE = NaN(length(CV), length(readout_pos));
+
         % loop over variabilities
         for i = 1:length(CV)
             
             % loop over several independent runs
-            fitted_lambda = NaN(nruns, 1);
-            fitted_C0 = NaN(nruns, 1);
             conc_per_iteration = NaN(nruns, length(readout_pos));
             
             for j = 1:nruns
@@ -247,6 +238,9 @@ for k = 1:numel(names)
                 end 
                 
                 piecewise_const = [];
+                
+                % loop through readout position to get the concenctration
+                % c(x) at each x value. (Piecewise constant function)
                 for idx = 1:length(readout_pos)
     
                     if readout_pos(idx) >= x_sol(end)
@@ -255,6 +249,11 @@ for k = 1:numel(names)
                         piecewise_const = [piecewise_const, y_sol(B)];
                     end 
                     
+                    % find indices where the readout position is smaller
+                    % than the x value defined by a cell. The Index one to
+                    % the left defines the value of of the concentration
+                    % c(x). 
+                    
                     B = find(readout_pos(idx) < x_sol);
                     B = min(B)-1;
                     
@@ -262,19 +261,25 @@ for k = 1:numel(names)
                     
                     
                 end
-                conc_per_iteration(j, :) = piecewise_const
+                % get all concenctrations for one iteration at each
+                % location x. 
+                conc_per_iteration(j, :) = piecewise_const;
                 
             end
-            
+            % Caculate summary statistics for the nruns
             % calculate the mean concentration at each position        
             conc(i, :) = mean(conc_per_iteration);
+                                
+            % calculate the standard error at each position               
+            conc_SE(i, :) = SEfun(conc_per_iteration)
             
-            % calculate the standard error at each position 
-            conc_SE(i, :) = std(conc_per_iteration,[],1)/sqrt(size(conc_per_iteration,1));
-
-           
+            % calculate the coefficient of variation at each position 
+            conc_CV(i, :) = CVfun((conc_per_iteration));
+            
+            % calculate the SE for the coefficient of variation 
+            conc_CV_SE(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration))
         end
-        
+              
         % write data
         if write
             %writetable(table(CV, lambda, lambda_SE, C0, C0_SE, CV_lambda, CV_lambda_SE, CV_0, CV_0_SE), filename);
@@ -286,7 +291,7 @@ for k = 1:numel(names)
    
     % plot the relationship between CV_k and lambda
     figure(f2)
-    subplot(1, numel(names), k)
+    subplot(2, numel(names), k)
     errorbar(readout_pos, conc(i, :), conc_SE(i, :), 'bo', 'LineWidth', LineWidth)
     hold on
     xlabel(['Position [µm]'])
@@ -294,37 +299,16 @@ for k = 1:numel(names)
     set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear')
     grid on
     
-    %{
+    
     % plot the relationship between CV_k and C_0
     subplot(2, numel(names), k + numel(names))
-    errorbar(CV, abs(C0-C(0)), C0_SE, 'bo', 'LineWidth', LineWidth)
+    errorbar(readout_pos, conc_CV(i, :), conc_CV_SE(i, :), 'bo', 'LineWidth', LineWidth)
     hold on
-    xlabel(['CV_{' names{k} '}'])
-    ylabel('C_0 - \mu_0 [a.u.]')
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
+    xlabel(['Position [µm]'])
+    ylabel(['CV_{C(x)}'])
+    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear', 'YScale', 'log')
     grid on
-    
-    % plot the relationship between CV_k and CV_lambda
-    figure(f3)
-    subplot(2, numel(names), k)
-    errorbar(CV, CV_lambda, CV_lambda_SE, 'bo', 'LineWidth', LineWidth)
-    hold on
-    xlabel(['CV_{' names{k} '}'])
-    ylabel('CV_\lambda')
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
-    grid on
-
-    % plot the relationship between CV_k and CV_0
-    subplot(2, numel(names), k + numel(names))
-    errorbar(CV, CV_0, CV_0_SE, 'bo', 'LineWidth', LineWidth)
-    hold on
-    xlabel(['CV_{' names{k} '}'])
-    ylabel('CV_0')
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'log', 'YScale', 'log')
-    grid on
-
-    drawnow
-    %}
+   
 end
 
  %% functions for the ODE
