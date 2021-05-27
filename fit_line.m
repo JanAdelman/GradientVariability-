@@ -6,6 +6,8 @@ T_all = readtable('Parameter_tables/Mean_Diameter_change_vs_CV_all.csv');
 T_p = readtable('Parameter_tables/Mean_Diameter_change_vs_CV_p.csv');
 T_d = readtable('Parameter_tables/Mean_Diameter_change_vs_CV_d.csv');
 
+T_length_all =  readtable('script_from_paper_cv_added/L_vs_CV_vs_cv_area_0.5_all.csv');
+
 %=========================================================================%
 % model using polyfit()
 %=========================================================================%
@@ -41,7 +43,9 @@ end
 
 % set up the model 
 beta0 = [0,0];
+beta_q = [0,0,0];
 linear_function = @(b,x)(b(1)*x + b(2));
+quadratic_function = @(b,x)(b(1)*x.^2 + b(2)*x + b(3));
 
 % model for diffusion coeff. 
 mdl_diff = fitnlm(log(T_diff.diameter_lambda), log(T_diff.CV_lambda), linear_function, beta0)
@@ -60,6 +64,11 @@ mdl_all_cv0 = fitnlm(log(T_all.diameter_lambda), log(T_all.CV_0), linear_functio
 mdl_p_cv0 = fitnlm(log(T_p.diameter_lambda), log(T_p.CV_0), linear_function, beta0)
 mdl_diff_cv0 = fitnlm(log(T_diff.diameter_lambda), log(T_diff.CV_0), linear_function, beta0)
 mdl_d_cv0 = fitnlm(log(T_d.diameter_lambda), log(T_d.CV_0), linear_function, beta0)
+
+% fit the domain lenght vary data with cv_area = 0.5 added 
+mdl_length_cv_0 = fitnlm(T_length_all.L, T_length_all.CV_0, quadratic_function, beta_q)
+mdl_length_cv_lambda = fitnlm(log(T_length_all.L), log(T_length_all.CV_lambda), linear_function, beta0)
+
 
 %=========================================================================%
 % plot some data to check
