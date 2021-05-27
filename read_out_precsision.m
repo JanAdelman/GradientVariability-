@@ -49,23 +49,28 @@ f2 = figure('Name', 'Spread of Variability in Concentration for different Positi
                     
 % k = p, d, D, and all three together
 for k = 1:numel(names)
-    filename = ['CV_vs_CV_cv_area_0.5_' names{k} '.csv'];
+    filename = ['read_out_precision_average_conc_' names{k} '.csv'];
     if names{k} == 'D'
-        filename = 'CV_vs_CV_Diff_cv_area_0.5.csv';
+        filename = 'read_out_precision_average_conc_diff.csv';
     end
         
     if simulate
         
-        conc = NaN(length(CV), length(readout_pos));
-        conc_SE = NaN(length(CV), length(readout_pos));
-        conc_CV = NaN(length(CV), length(readout_pos));
-        conc_CV_SE = NaN(length(CV), length(readout_pos));
-
+        conc_average = NaN(length(CV), length(readout_pos));
+        conc_SE_average = NaN(length(CV), length(readout_pos));
+        conc_CV_average = NaN(length(CV), length(readout_pos));
+        conc_CV_SE_average = NaN(length(CV), length(readout_pos));
+        conc_random = NaN(length(CV), length(readout_pos));
+        conc_SE_random = NaN(length(CV), length(readout_pos));
+        conc_CV_SE_random = NaN(length(CV), length(readout_pos));
+        conc_CV_random = NaN(length(CV), length(readout_pos));
+        
         % loop over variabilities
         for i = 1:length(CV)
             
             % loop over several independent runs
-            conc_per_iteration = NaN(nruns, length(readout_pos));
+            conc_per_iteration_average = NaN(nruns, length(readout_pos));
+            conc_per_iteration_random = NaN(nruns, length(readout_pos));
             
             for j = 1:nruns
                 
@@ -197,7 +202,11 @@ for k = 1:numel(names)
                 cell_beginning = 0;
                 
                 % array to store numerical integration results
-                y_sol = [];
+                y_sol_average = [];
+                
+                % array to store random conc. from a cell
+                y_sol_random = [];
+                
                 % use the beginning of each cell as the x-coordinate 
                 x_sol = [0, l_p(1:end-1)];
                               
@@ -227,26 +236,36 @@ for k = 1:numel(names)
                     X = sol.x(interval);
                     Y = sol.y(1, interval);
                     
+                    % get a concentration randomly from a cell 
+                    rand_conc = randsample(Y,1);
+                    
+                    % append the solution for each cell to the solution
+                    % array 
+                    y_sol_random = [y_sol_random, rand_conc];
+                    
                     % get the average concentration per cell (thus
                     % normalised by cell length) 
                     trapz_sol = trapz(X,Y)/cell_length;
                     
                     % append the solution for each cell to the solution
                     % array 
-                    y_sol = [y_sol, trapz_sol];
+                    y_sol_average = [y_sol_average, trapz_sol];
                     
                 end 
                 
-                piecewise_const = [];
+                piecewise_const_average = [];
+                piecewise_const_random = [];
                 
                 % loop through readout position to get the concenctration
                 % c(x) at each x value. (Piecewise constant function)
                 for idx = 1:length(readout_pos)
-    
+                    
+                    % if at tthe end, set the index to the position of the
+                    % last cell 
                     if readout_pos(idx) >= x_sol(end)
-         
                         B = length(x_sol);
-                        piecewise_const = [piecewise_const, y_sol(B)];
+                        piecewise_const_average = [piecewise_const_average, y_sol_average(B)];
+                        piecewise_const_random = [piecewise_const_random, y_sol_random(B)];
                     end 
                     
                     % find indices where the readout position is smaller
@@ -257,32 +276,37 @@ for k = 1:numel(names)
                     B = find(readout_pos(idx) < x_sol);
                     B = min(B)-1;
                     
-                    piecewise_const = [piecewise_const, y_sol(B)];            
-                    
-                    
+                    piecewise_const_average = [piecewise_const_average, y_sol_average(B)]; 
+                    piecewise_const_random = [piecewise_const_random, y_sol_random(B)];
+                                        
                 end
                 % get all concenctrations for one iteration at each
                 % location x. 
-                conc_per_iteration(j, :) = piecewise_const;
-                
+                conc_per_iteration_average(j, :) = piecewise_const_average;
+                conc_per_iteration_random(j, :) = piecewise_const_random;
             end
+            
             % Caculate summary statistics for the nruns
             % calculate the mean concentration at each position        
-            conc(i, :) = mean(conc_per_iteration);
+            conc_average(i, :) = mean(conc_per_iteration_average);
+            conc_random(i, :) = mean(conc_per_iteration_random);
                                 
             % calculate the standard error at each position               
-            conc_SE(i, :) = SEfun(conc_per_iteration)
+            conc_SE_average(i, :) = SEfun(conc_per_iteration_average)
+            conc_SE_random(i, :) = SEfun(conc_per_iteration_random)
             
             % calculate the coefficient of variation at each position 
-            conc_CV(i, :) = CVfun((conc_per_iteration));
+            conc_CV_average(i, :) = CVfun((conc_per_iteration_average));
+            conc_CV_random(i, :) = CVfun((conc_per_iteration_random));
             
             % calculate the SE for the coefficient of variation 
-            conc_CV_SE(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration))
+            conc_CV_SE_average(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_average));
+            conc_CV_SE_random(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_random));
         end
               
         % write data
         if write
-            %writetable(table(CV, lambda, lambda_SE, C0, C0_SE, CV_lambda, CV_lambda_SE, CV_0, CV_0_SE), filename);
+            writetable(table(conc_average, conc_SE_average, conc_CV_average, conc_CV_SE_average), filename);
         end
     else
         % read data
@@ -292,19 +316,23 @@ for k = 1:numel(names)
     % plot the relationship between CV_k and lambda
     figure(f2)
     subplot(2, numel(names), k)
-    errorbar(readout_pos, conc(i, :), conc_SE(i, :), 'bo', 'LineWidth', LineWidth)
+    errorbar(readout_pos, conc_average(i, :), conc_SE_average(i, :), 'bo', 'LineWidth', LineWidth)
     hold on
-    xlabel(['Position [µm]'])
-    ylabel('Concentration')
+    errorbar(readout_pos, conc_random(i, :), conc_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
+    
+    xlabel(['Position x [µm]'])
+    ylabel('Concentration C(x)')
     set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear')
     grid on
     
     
     % plot the relationship between CV_k and C_0
     subplot(2, numel(names), k + numel(names))
-    errorbar(readout_pos, conc_CV(i, :), conc_CV_SE(i, :), 'bo', 'LineWidth', LineWidth)
+    errorbar(readout_pos, conc_CV_average(i, :), conc_CV_SE_average(i, :), 'bo', 'LineWidth', LineWidth)
     hold on
-    xlabel(['Position [µm]'])
+    errorbar(readout_pos, conc_CV_random(i, :), conc_CV_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
+    
+    xlabel(['Position x [µm]'])
     ylabel(['CV_{C(x)}'])
     set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear', 'YScale', 'log')
     grid on
