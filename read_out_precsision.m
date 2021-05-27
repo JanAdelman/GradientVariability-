@@ -22,7 +22,7 @@ ncP = 50; % number of cells in the patterning domain
 %CV = [0.01:0.01:0.09 0.1:0.05:0.95 1:0.5:10]'; % coefficient of variation of the kinetic parameters
 CV = [0.3];
 %plot_CV = CV(14); % plot the gradients for this CV value
-CV_area = 0;
+CV_area = 0.5;
 % analytical deterministic solution
 nc = ncS + ncP; % total number of cells
 LS = ncS * diameter; % source length
@@ -32,6 +32,7 @@ C = @(x) mu_p/mu_d * ((x<0) .* (1-cosh(x/mu_lambda)) + sinh(LS/mu_lambda) / sinh
 %CVfun = @(x) nanstd(x) / nanmean(x);
 CVfun = @(x) nanstd(x) ./ nanmean(x);
 SEfun = @(x) nanstd(x) ./ sqrt(sum(~isnan(x)));
+Stdfun = @(x) nanstd(x);
 
 fitopt = statset('TolFun', tol, 'TolX', tol);
 
@@ -68,7 +69,10 @@ for k = 1:numel(names)
         conc_SE_cilium = NaN(length(CV), length(readout_pos));
         conc_CV_cilium = NaN(length(CV), length(readout_pos));
         conc_CV_SE_cilium = NaN(length(CV), length(readout_pos));
-    
+        conc_std_average = NaN(length(CV), length(readout_pos));
+        conc_std_random = NaN(length(CV), length(readout_pos));
+        conc_std_cilium = NaN(length(CV), length(readout_pos));
+               
         % loop over variabilities
         for i = 1:length(CV)
             
@@ -251,7 +255,7 @@ for k = 1:numel(names)
                     % get the x value closest to the mean cell area
                     
                     [min_distance, index] = min( abs(X - mid_point(cell_loc)));
-                    
+                  
                     cilium_sol = Y(index);
                     
                     % append the solution for each cell to the solution
@@ -327,6 +331,11 @@ for k = 1:numel(names)
             conc_SE_random(i, :) = SEfun(conc_per_iteration_random);
             conc_SE_cilium(i, :) = SEfun(conc_per_iteration_cilium);
             
+            % calculate standard deviation at each position
+            conc_std_average(i, :) = Stdfun(conc_per_iteration_average);
+            conc_std_random(i, :) = Stdfun(conc_per_iteration_random);
+            conc_std_cilium(i, :) = Stdfun(conc_per_iteration_cilium);
+            
             % calculate the coefficient of variation at each position 
             conc_CV_average(i, :) = CVfun((conc_per_iteration_average));
             conc_CV_random(i, :) = CVfun((conc_per_iteration_random));
@@ -350,26 +359,35 @@ for k = 1:numel(names)
    
     % plot the relationship between CV_k and lambda
     figure(f2)
-    subplot(3, numel(names), k)
+    
+    subplot(3,1,1)
     errorbar(readout_pos, conc_cilium(i, :), conc_SE_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')   
     hold on
     errorbar(readout_pos, conc_random(i, :), conc_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
-    errorbar(readout_pos, conc_average(i, :), conc_SE_average(i, :), 'bo', 'LineWidth', LineWidth)
-    
+    errorbar(readout_pos, conc_average(i, :), conc_SE_average(i, :), 'bo', 'LineWidth', LineWidth)   
     xlabel(['Position x [µm]'])
     ylabel('µ_{C(x)}')
     set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear')
     grid on
     
-    subplot(3, numel(names), k + numel(names))
-    
+    subplot(3,1,2);
+    %errorbar(readout_pos, conc_std_cilium(i, :), conc_SE_cilium(i, :),'bo', 'LineWidth', LineWidth, 'Color', 'g')   
+    plot(readout_pos, conc_std_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')
+    hold on
+    %errorbar(readout_pos, conc_std_random(i, :), conc_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
+    %errorbar(readout_pos, conc_std_average(i, :), conc_SE_average(i, :),'bo', 'LineWidth', LineWidth)      
+    plot(readout_pos, conc_std_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
+    plot(readout_pos, conc_std_average(i, :), 'bo', 'LineWidth', LineWidth')
+    xlabel(['Position x [µm]'])
+    ylabel('\sigma_{C(x)}')
+    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear')
+    grid on
     
     % plot the relationship between CV_k and C_0
-    subplot(3, numel(names), k + numel(names))
+    subplot(3, 1, 3);
     errorbar(readout_pos, conc_CV_cilium(i, :), conc_CV_SE_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')
     hold on
-    errorbar(readout_pos, conc_CV_random(i, :), conc_CV_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
-    
+    errorbar(readout_pos, conc_CV_random(i, :), conc_CV_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')   
     errorbar(readout_pos, conc_CV_average(i, :), conc_CV_SE_average(i, :), 'bo', 'LineWidth', LineWidth)
     xlabel(['Position x [µm]'])
     ylabel(['CV_{C(x)} =  \sigma_{C(x)}/µ_{C(x)}'])
