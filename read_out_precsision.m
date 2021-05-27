@@ -22,7 +22,7 @@ ncP = 50; % number of cells in the patterning domain
 %CV = [0.01:0.01:0.09 0.1:0.05:0.95 1:0.5:10]'; % coefficient of variation of the kinetic parameters
 CV = [0.3];
 %plot_CV = CV(14); % plot the gradients for this CV value
-CV_area = 0.5;
+CV_area = 0;
 % analytical deterministic solution
 nc = ncS + ncP; % total number of cells
 LS = ncS * diameter; % source length
@@ -64,13 +64,18 @@ for k = 1:numel(names)
         conc_SE_random = NaN(length(CV), length(readout_pos));
         conc_CV_SE_random = NaN(length(CV), length(readout_pos));
         conc_CV_random = NaN(length(CV), length(readout_pos));
-        
+        conc_cilium = NaN(length(CV), length(readout_pos));
+        conc_SE_cilium = NaN(length(CV), length(readout_pos));
+        conc_CV_cilium = NaN(length(CV), length(readout_pos));
+        conc_CV_SE_cilium = NaN(length(CV), length(readout_pos));
+    
         % loop over variabilities
         for i = 1:length(CV)
             
             % loop over several independent runs
             conc_per_iteration_average = NaN(nruns, length(readout_pos));
             conc_per_iteration_random = NaN(nruns, length(readout_pos));
+            conc_per_iteration_cilium = NaN(nruns, length(readout_pos));
             
             for j = 1:nruns
                 
@@ -207,8 +212,15 @@ for k = 1:numel(names)
                 % array to store random conc. from a cell
                 y_sol_random = [];
                 
+                % array to store conc. closeste to mid point
+                y_sol_cilium = [];
+                
                 % use the beginning of each cell as the x-coordinate 
                 x_sol = [0, l_p(1:end-1)];
+                               
+                % calculate the middle point of each cell 
+                middle = (l_p - x_sol) /2;
+                mid_point = x_sol + middle;
                               
                 % loop through the  cell and extract the solutions for each
                 % cell separately. Then use the trapezoid method to
@@ -219,7 +231,7 @@ for k = 1:numel(names)
                     
                     % set the upper interval as the end of a cell 
                     cell_end = l_p(cell_loc);
-                    
+            
                     % define interval where to extract solutions 
                     logical_indexes = (sol.x <= cell_end) & (sol.x >= cell_beginning);
                     % extract indices of the desired solutions 
@@ -227,7 +239,7 @@ for k = 1:numel(names)
                     
                     % get lenght of the cell for normalisation
                     cell_length = cell_end - cell_beginning;
-                                    
+                                                      
                     % set the lower interval for the next iteration as the
                     % current end of the cell 
                     cell_beginning = cell_end;
@@ -236,6 +248,16 @@ for k = 1:numel(names)
                     X = sol.x(interval);
                     Y = sol.y(1, interval);
                     
+                    % get the x value closest to the mean cell area
+                    
+                    [min_distance, index] = min( abs(X - mid_point(cell_loc)));
+                    
+                    cilium_sol = Y(index);
+                    
+                    % append the solution for each cell to the solution
+                    % array 
+                    y_sol_cilium = [y_sol_cilium, cilium_sol];
+                    
                     % get a concentration randomly from a cell 
                     rand_conc = randsample(Y,1);
                     
@@ -243,18 +265,21 @@ for k = 1:numel(names)
                     % array 
                     y_sol_random = [y_sol_random, rand_conc];
                     
+                                     
                     % get the average concentration per cell (thus
                     % normalised by cell length) 
                     trapz_sol = trapz(X,Y)/cell_length;
-                    
+  
                     % append the solution for each cell to the solution
                     % array 
                     y_sol_average = [y_sol_average, trapz_sol];
                     
+                                      
                 end 
                 
                 piecewise_const_average = [];
                 piecewise_const_random = [];
+                piecewise_const_cilium = [];
                 
                 % loop through readout position to get the concenctration
                 % c(x) at each x value. (Piecewise constant function)
@@ -266,6 +291,8 @@ for k = 1:numel(names)
                         B = length(x_sol);
                         piecewise_const_average = [piecewise_const_average, y_sol_average(B)];
                         piecewise_const_random = [piecewise_const_random, y_sol_random(B)];
+                        piecewise_const_cilium = [piecewise_const_cilium, y_sol_cilium(B)];
+                        
                     end 
                     
                     % find indices where the readout position is smaller
@@ -278,30 +305,38 @@ for k = 1:numel(names)
                     
                     piecewise_const_average = [piecewise_const_average, y_sol_average(B)]; 
                     piecewise_const_random = [piecewise_const_random, y_sol_random(B)];
+                    piecewise_const_cilium = [piecewise_const_cilium, y_sol_cilium(B)];
                                         
                 end
                 % get all concenctrations for one iteration at each
                 % location x. 
                 conc_per_iteration_average(j, :) = piecewise_const_average;
                 conc_per_iteration_random(j, :) = piecewise_const_random;
+                conc_per_iteration_cilium(j, :) = piecewise_const_cilium;
+                
             end
             
             % Caculate summary statistics for the nruns
             % calculate the mean concentration at each position        
             conc_average(i, :) = mean(conc_per_iteration_average);
             conc_random(i, :) = mean(conc_per_iteration_random);
+            conc_cilium(i, :) = mean(conc_per_iteration_cilium);
                                 
             % calculate the standard error at each position               
-            conc_SE_average(i, :) = SEfun(conc_per_iteration_average)
-            conc_SE_random(i, :) = SEfun(conc_per_iteration_random)
+            conc_SE_average(i, :) = SEfun(conc_per_iteration_average);
+            conc_SE_random(i, :) = SEfun(conc_per_iteration_random);
+            conc_SE_cilium(i, :) = SEfun(conc_per_iteration_cilium);
             
             % calculate the coefficient of variation at each position 
             conc_CV_average(i, :) = CVfun((conc_per_iteration_average));
             conc_CV_random(i, :) = CVfun((conc_per_iteration_random));
+            conc_CV_cilium(i, :) = CVfun((conc_per_iteration_cilium));
             
             % calculate the SE for the coefficient of variation 
             conc_CV_SE_average(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_average));
             conc_CV_SE_random(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_random));
+            conc_CV_SE_cilium(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_cilium));
+            
         end
               
         % write data
@@ -315,25 +350,29 @@ for k = 1:numel(names)
    
     % plot the relationship between CV_k and lambda
     figure(f2)
-    subplot(2, numel(names), k)
-    errorbar(readout_pos, conc_average(i, :), conc_SE_average(i, :), 'bo', 'LineWidth', LineWidth)
+    subplot(3, numel(names), k)
+    errorbar(readout_pos, conc_cilium(i, :), conc_SE_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')   
     hold on
     errorbar(readout_pos, conc_random(i, :), conc_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
+    errorbar(readout_pos, conc_average(i, :), conc_SE_average(i, :), 'bo', 'LineWidth', LineWidth)
     
     xlabel(['Position x [µm]'])
-    ylabel('Concentration C(x)')
+    ylabel('µ_{C(x)}')
     set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear')
     grid on
     
+    subplot(3, numel(names), k + numel(names))
+    
     
     % plot the relationship between CV_k and C_0
-    subplot(2, numel(names), k + numel(names))
-    errorbar(readout_pos, conc_CV_average(i, :), conc_CV_SE_average(i, :), 'bo', 'LineWidth', LineWidth)
+    subplot(3, numel(names), k + numel(names))
+    errorbar(readout_pos, conc_CV_cilium(i, :), conc_CV_SE_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')
     hold on
     errorbar(readout_pos, conc_CV_random(i, :), conc_CV_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
     
+    errorbar(readout_pos, conc_CV_average(i, :), conc_CV_SE_average(i, :), 'bo', 'LineWidth', LineWidth)
     xlabel(['Position x [µm]'])
-    ylabel(['CV_{C(x)}'])
+    ylabel(['CV_{C(x)} =  \sigma_{C(x)}/µ_{C(x)}'])
     set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear', 'YScale', 'log')
     grid on
    
