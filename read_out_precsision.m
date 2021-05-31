@@ -41,8 +41,9 @@ close all
 %names = {'p', 'd', 'D', 'all'};
 names = {'p'};
 
-% get the readout positions for the gradient 
-readout_pos = [0:LP/100:LP];
+% get the readout positions for the gradient
+readout_pos = linspace(0,LP,101);
+
 %% vary molecular noise
 
 f2 = figure('Name', 'Spread of Variability in Concentration for different Positions', 'Position', [0 0 2000 800]);
@@ -235,7 +236,7 @@ for k = 1:numel(names)
                     
                     % set the upper interval as the end of a cell 
                     cell_end = l_p(cell_loc);
-            
+                    
                     % define interval where to extract solutions 
                     logical_indexes = (sol.x <= cell_end) & (sol.x >= cell_beginning);
                     % extract indices of the desired solutions 
@@ -243,33 +244,40 @@ for k = 1:numel(names)
                     
                     % get lenght of the cell for normalisation
                     cell_length = cell_end - cell_beginning;
-                                                      
-                    % set the lower interval for the next iteration as the
-                    % current end of the cell 
-                    cell_beginning = cell_end;
                     
                     % get the x and y solution 
                     X = sol.x(interval);
                     Y = sol.y(1, interval);
                     
-                    % get the x value closest to the mean cell area
+                    % get unique x, y values for interpolation solver
+                    x_unique = unique(X,'stable');
+                    y_unique = unique(Y,'stable');
                     
-                    [min_distance, index] = min( abs(X - mid_point(cell_loc)));
-                  
-                    cilium_sol = Y(index);
+                    % closest to mean 
+                    %[min_distance, index] = min( abs(X - mid_point(cell_loc)));
+                    %cilium_sol = Y(index);
+                    
+                    % interpolation um Mittelwert zu bestimmen 
+                    cilium_sol = interp1(x_unique, y_unique, mid_point(cell_loc))
                     
                     % append the solution for each cell to the solution
                     % array 
                     y_sol_cilium = [y_sol_cilium, cilium_sol];
                     
-                    % get a concentration randomly from a cell 
-                    rand_conc = randsample(Y,1);
+                    % get a concentration randomly from a cell-point 
+                    % and use this point with interpolation 
+                    %rand_conc = randsample(Y,1);
+                    
+                    % get a random point in the cell
+                    rand_x = (cell_end-cell_beginning).*rand(1,1) + cell_beginning
+                                       
+                    % get solution at that point
+                    rand_conc = interp1(x_unique, y_unique, rand_x);
                     
                     % append the solution for each cell to the solution
                     % array 
                     y_sol_random = [y_sol_random, rand_conc];
                     
-                                     
                     % get the average concentration per cell (thus
                     % normalised by cell length) 
                     trapz_sol = trapz(X,Y)/cell_length;
@@ -277,6 +285,10 @@ for k = 1:numel(names)
                     % append the solution for each cell to the solution
                     % array 
                     y_sol_average = [y_sol_average, trapz_sol];
+                    
+                    % set the lower interval for the next iteration as the
+                    % current end of the cell 
+                    cell_beginning = cell_end;
                     
                                       
                 end 
@@ -319,7 +331,7 @@ for k = 1:numel(names)
                 conc_per_iteration_cilium(j, :) = piecewise_const_cilium;
                 
             end
-            
+  
             % Caculate summary statistics for the nruns
             % calculate the mean concentration at each position        
             conc_average(i, :) = mean(conc_per_iteration_average);
@@ -330,7 +342,7 @@ for k = 1:numel(names)
             conc_SE_average(i, :) = SEfun(conc_per_iteration_average);
             conc_SE_random(i, :) = SEfun(conc_per_iteration_random);
             conc_SE_cilium(i, :) = SEfun(conc_per_iteration_cilium);
-            
+        
             % calculate standard deviation at each position
             conc_std_average(i, :) = Stdfun(conc_per_iteration_average);
             conc_std_random(i, :) = Stdfun(conc_per_iteration_random);
@@ -340,12 +352,16 @@ for k = 1:numel(names)
             conc_CV_average(i, :) = CVfun((conc_per_iteration_average));
             conc_CV_random(i, :) = CVfun((conc_per_iteration_random));
             conc_CV_cilium(i, :) = CVfun((conc_per_iteration_cilium));
-            
+           
+            %conc_per_iteration_average = conc_per_iteration_average';
+            %conc_per_iteration_random = conc_per_iteration_random';
+            %conc_per_iteration_cilium = conc_per_iteration_cilium';
+ 
             % calculate the SE for the coefficient of variation 
             conc_CV_SE_average(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_average));
             conc_CV_SE_random(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_random));
             conc_CV_SE_cilium(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_cilium));
-            
+           
         end
               
         % write data
