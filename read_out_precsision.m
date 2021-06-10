@@ -9,7 +9,7 @@ FontSize = 18;
 
 % parameters
 tol = 1e-10; % numerical tolerance for solver and fitting
-nruns = 100; % number of independent simulation runs
+nruns = 1000; % number of independent simulation runs
 nboot = 1e4; % number of bootstrap samples for error estimation
 diameter = 4.9; % cell diameter [µm]
 mu_D = 0.033; % mean morphogen diffusion constant [µm^2/s]
@@ -42,9 +42,14 @@ close all
 %f1 = figure('Name', 'Individual gradients', 'Position', [0 0 2000 800]);
 %names = {'p', 'd', 'D', 'all'};
 names = {'p'};
-%k_d = [0.0000001,0.000001 ,0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10];
-k_d = [0.001, 0.01, 0.1,0.2, 0.3, 0.4];
-% get the readout positions for the gradient
+
+
+k_d_small = fliplr(linspace(0.0000012, 0.009,50));
+k_d_big = fliplr(linspace(0.01, 0.4, 50));
+
+k_d = [k_d_big, k_d_small];
+
+
 readout_pos = linspace(0,LP,101);
 
 %% vary molecular noise
@@ -54,9 +59,13 @@ f2 = figure('Name', 'Spread of Variability in Concentration for different Positi
                     
 % k = p, d, D, and all three together
 for k = 1:numel(names)
+    position_file = 'x_positions.csv';
     filename_cilium = ['read_out_precision_cilium_conc_' names{k} '.csv'];
-    filename_random = ['read_out_precision_randoom_conc_' names{k} '.csv'];
+    filename_random = ['read_out_precision_random_conc_' names{k} '.csv'];
     filename_average = ['read_out_precision_average_conc_' names{k} '.csv'];
+    filename_readout_pos_average = 'readout_pos_average.csv';
+    filename_readout_pos_cilium = 'readout_pos_cilium.csv';
+    filename_readout_pos_random = 'readout_pos_random.csv';
     if names{k} == 'D'
         filename_cilium = 'read_out_precision_cilium_conc_diff.csv';
         filename_average = 'read_out_precision_random_conc_diff.csv';
@@ -80,7 +89,11 @@ for k = 1:numel(names)
         conc_std_average = NaN(length(CV), length(readout_pos));
         conc_std_random = NaN(length(CV), length(readout_pos));
         conc_std_cilium = NaN(length(CV), length(readout_pos));
+        conc_std_SE_cilium = NaN(length(CV), length(readout_pos));
         
+        mean_x_pos_average =  NaN(length(CV), length(k_d));
+        mean_x_pos_random = NaN(length(CV), length(k_d));
+        mean_x_pos_cilium = NaN(length(CV), length(k_d));
                
         % loop over variabilities
         for i = 1:length(CV)
@@ -371,63 +384,59 @@ for k = 1:numel(names)
   
             % Caculate summary statistics for the nruns
             % calculate the mean concentration at each position        
-            conc_average(i, :) = mean(conc_per_iteration_average)';
+            conc_average(i, :) = mean(conc_per_iteration_average);
             conc_random(i, :) = mean(conc_per_iteration_random);
             conc_cilium(i, :) = mean(conc_per_iteration_cilium);
                                 
             % calculate the standard error at each position               
-            conc_SE_average(i, :) = SEfun(conc_per_iteration_average)';
+            conc_SE_average(i, :) = SEfun(conc_per_iteration_average);
             conc_SE_random(i, :) = SEfun(conc_per_iteration_random);
             conc_SE_cilium(i, :) = SEfun(conc_per_iteration_cilium);
         
             % calculate standard deviation at each position
-            conc_std_average(i, :) = Stdfun(conc_per_iteration_average)';
+            conc_std_average(i, :) = Stdfun(conc_per_iteration_average);
             conc_std_random(i, :) = Stdfun(conc_per_iteration_random);
             conc_std_cilium(i, :) = Stdfun(conc_per_iteration_cilium);
-            
+                       
+            conc_std_SE_cilium(i, :) =  std(bootstrp(nboot, SEfun, conc_std_cilium'));
+  
+    
             % calculate the coefficient of variation at each position 
-            conc_CV_average(i, :) = CVfun((conc_per_iteration_average))';
+            conc_CV_average(i, :) = CVfun((conc_per_iteration_average));
             conc_CV_random(i, :) = CVfun((conc_per_iteration_random));
             conc_CV_cilium(i, :) = CVfun((conc_per_iteration_cilium));
-           
-            %conc_per_iteration_average = conc_per_iteration_average';
-            %conc_per_iteration_random = conc_per_iteration_random';
-            %conc_per_iteration_cilium = conc_per_iteration_cilium';
+        
  
             % calculate the SE for the coefficient of variation 
-            conc_CV_SE_average(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_average))';
+            conc_CV_SE_average(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_average));
             conc_CV_SE_random(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_random));
             conc_CV_SE_cilium(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_cilium));
+        
+            mean_pos_random = nanmean(rand_interp_nruns)
+            std_pos_random = nanstd(rand_interp_nruns)
             
-            mean_pos_random = nanmean(rand_interp_nruns);
-            std_pos_random = nanstd(rand_interp_nruns);
-            
-            mean_pos_average = nanmean(average_interp_nruns);
-            std_pos_average = nanstd(average_interp_nruns);
+            mean_pos_average = nanmean(average_interp_nruns)
+            std_pos_average = nanstd(average_interp_nruns)
   
-            mean_pos_cilium = nanmean(cilium_interp_nruns);
-            std_pos_cilium = nanstd(cilium_interp_nruns);
+            mean_pos_cilium = nanmean(cilium_interp_nruns)
+            std_pos_cilium = nanstd(cilium_interp_nruns)
         end
               
         % write data
         if write
-            writetable(table(conc_average', conc_SE_average', conc_CV_average', conc_CV_SE_average', 'VariableNames', {'conc_average','conc_SE_average', 'conc_CV_average', 'conc_CV_SE_average'}), filename_average);
-            writetable(table(conc_cilium', conc_SE_cilium', conc_CV_cilium', conc_CV_SE_cilium', 'VariableNames', {'conc_cilium','conc_SE_cilium', 'conc_CV_cilium', 'conc_CV_SE_cilium'}), filename_cilium);
-            writetable(table(conc_random', conc_SE_random', conc_CV_random', conc_CV_SE_random', 'VariableNames', {'conc_random','conc_SE_random', 'conc_CV_random', 'conc_CV_SE_random'}), filename_random);
+            writetable(table(k_d', mean_pos_cilium', std_pos_cilium', 'VariableNames', {'k_d', 'mean_pos_cilium', 'std_pos_cilium'}), filename_readout_pos_cilium);
+            writetable(table(k_d', mean_pos_average', std_pos_average', 'VariableNames', {'k_d', 'mean_pos_average', 'std_pos_average'}), filename_readout_pos_average);
+            writetable(table(k_d', mean_pos_random', std_pos_random', 'VariableNames', {'k_d', 'mean_pos_random', 'std_pos_random'}), filename_readout_pos_random);
+            writetable(table(readout_pos', conc_average', conc_SE_average', conc_CV_average', conc_CV_SE_average', 'VariableNames', {'pos', 'conc_average','conc_SE_average', 'conc_CV_average', 'conc_CV_SE_average'}), filename_average);
+            writetable(table(readout_pos', conc_cilium', conc_SE_cilium', conc_CV_cilium', conc_CV_SE_cilium', 'VariableNames', {'pos', 'conc_cilium','conc_SE_cilium', 'conc_CV_cilium', 'conc_CV_SE_cilium'}), filename_cilium);
+            writetable(table(readout_pos', conc_random', conc_SE_random', conc_CV_random', conc_CV_SE_random', 'VariableNames', {'pos', 'conc_random','conc_SE_random', 'conc_CV_random', 'conc_CV_SE_random'}), filename_random);
+            writetable(table(readout_pos', 'VariableNames', {'pos'}), position_file);
         end
     else
     % read data
       
     end
-    mean_pos_random
-    std_pos_random
-    
-    mean_pos_average
-    std_pos_average
-    
-    mean_pos_cilium
-    std_pos_cilium
-    
+
     % plot the relationship between CV_k and lambda
     figure(f2)
     
@@ -442,8 +451,8 @@ for k = 1:numel(names)
     grid on
     
     subplot(3,1,2);
-    %errorbar(readout_pos, conc_std_cilium(i, :), conc_SE_cilium(i, :),'bo', 'LineWidth', LineWidth, 'Color', 'g')   
-    plot(readout_pos, conc_std_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')
+    errorbar(readout_pos, conc_std_cilium(i, :), conc_std_SE_cilium(i, :),'bo', 'LineWidth', LineWidth, 'Color', 'g')   
+    %plot(readout_pos, conc_std_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')
     hold on
     %errorbar(readout_pos, conc_std_random(i, :), conc_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
     %errorbar(readout_pos, conc_std_average(i, :), conc_SE_average(i, :),'bo', 'LineWidth', LineWidth)      
