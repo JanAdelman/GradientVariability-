@@ -4,12 +4,12 @@ function readout_precision
 simulate = true; % if false, plot results from saved files instead of generating new data
 write = true; % when creating new data, should the results be written to output files?
 fitcosh = true; % fit an exp or cosh to the gradients
-LineWidth = 1000;
+LineWidth = 100;
 FontSize = 18;
 
 % parameters
 tol = 1e-10; % numerical tolerance for solver and fitting
-nruns = 100; % number of independent simulation runs
+nruns = 5; % number of independent simulation runs
 nboot = 1e4; % number of bootstrap samples for error estimation
 diameter = 4.9; % cell diameter [µm]
 mu_D = 0.033; % mean morphogen diffusion constant [µm^2/s]
@@ -36,13 +36,12 @@ Stdfun = @(x) nanstd(x);
 
 fitopt = statset('TolFun', tol, 'TolX', tol);
 
-hill = @(x,k_hill) 1*(x ./ (x+k_hill));
+hill = @(x,k_hill) 1*(x ./ (x + k_hill));
 
 close all
 %f1 = figure('Name', 'Individual gradients', 'Position', [0 0 2000 800]);
 %names = {'p', 'd', 'D', 'all'};
 names = {'p'};
-
 
 % high resolution k values
 k_d_small = fliplr(linspace(0.00001, 0.00009,35));
@@ -57,8 +56,9 @@ k_d_upper_medium_low_res = fliplr(linspace(0.0011, 0.01, 5));
 k_d_big_low_res = fliplr(linspace(0.011, 0.4, 5));
 
 k_d = [k_d_big, k_d_upper_medium, k_d_medium, k_d_small];
-k_d = [0.1, 0.001, 0.01, 0.0001, 0.00001];
-k_d_low_res = [k_d_big_low_res, k_d_upper_medium_low_res, k_d_medium_low_res, k_d_small_low_res];
+k_d = [0.1, 0.01];
+%k_d = [0.1, 0.001, 0.01, 0.0001, 0.00001, 0.00001];
+%k_d_low_res = [k_d_big_low_res, k_d_upper_medium_low_res, k_d_medium_low_res, k_d_small_low_res];
 
 readout_pos = linspace(0,LP,101);
 
@@ -69,22 +69,17 @@ f2 = figure('Name', 'Spread of Variability in Concentration for different Positi
                     
 % k = p, d, D, and all three together
 for k = 1:numel(names)
-    position_file = 'x_positions.csv';
    
-    filename_readout_pos_average = 'readout_pos_average.csv';
-    filename_readout_pos_cilium = 'readout_pos_cilium.csv';
-    filename_readout_pos_random = 'readout_pos_random.csv';
-    filename_readout_pos_average_low_res = 'readout_pos_average_low_res.csv';
-    filename_readout_pos_cilium_low_res = 'readout_pos_cilium_low_res.csv';
-    filename_readout_pos_random_low_res = 'readout_pos_random_low_res.csv';
+    filename_readout_pos_average = 'readout_pos_average_hill.csv';
+    filename_readout_pos_cilium = 'readout_pos_cilium_hill.csv';
+    filename_readout_pos_random = 'readout_pos_random_hill.csv';
+ 
     if names{k} == 'D'
-        filename_cilium = 'read_out_precision_cilium_conc_diff.csv';
-        filename_average = 'read_out_precision_random_conc_diff.csv';
-        filename_average = 'read_out_precision_average_conc_diff.csv';
+    
     end
         
     if simulate
-        
+        %{
         conc_average = NaN(length(CV), length(readout_pos));
         conc_SE_average = NaN(length(CV), length(readout_pos));
         conc_CV_average = NaN(length(CV), length(readout_pos));
@@ -101,6 +96,7 @@ for k = 1:numel(names)
         conc_std_random = NaN(length(CV), length(readout_pos));
         conc_std_cilium = NaN(length(CV), length(readout_pos));
         conc_std_SE_cilium = NaN(length(CV), length(readout_pos));
+        %}
         
         mean_x_pos_average =  [];
         mean_x_pos_random = [];
@@ -113,19 +109,9 @@ for k = 1:numel(names)
         % loop over variabilities
         for i = 1:length(k_d)
             
-            % loop over several independent runs
-            conc_per_iteration_average = NaN(nruns, length(readout_pos));
-            conc_per_iteration_random = NaN(nruns, length(readout_pos));
-            conc_per_iteration_cilium = NaN(nruns, length(readout_pos));
-            rand_interp_nruns = NaN(nruns, length(k_d));
-            average_interp_nruns = NaN(nruns, length(k_d));
-            cilium_interp_nruns = NaN(nruns, length(k_d));
-            
-            rand_interp_nurns_low_res = NaN(nruns, length(k_d_low_res));
-            average_interp_nruns_low_res = NaN(nruns, length(k_d_low_res));
-            cilium_interp_nruns_low_res = NaN(nruns, length(k_d_low_res));
-            
             half_max_average_array = [];
+            half_max_cilium_array = [];
+            half_max_random_array = [];
             
             for j = 1:nruns
                 
@@ -345,33 +331,21 @@ for k = 1:numel(names)
                 hill_random_point = hill(y_sol_random, k_d_iter);
                 hill_average_conc = hill(y_sol_average, k_d_iter);
                 hill_cilium = hill(y_sol_cilium, k_d_iter);
-                
+           
                 %{
                 figure(f4)
                 plot(x_sol, hill_average_conc)
                 hold on
                 %}
-                
-                half_max_average = interp1(hill_average_conc, x_sol, 0.5)
+   
+                half_max_average = interp1(hill_average_conc, x_sol, 0.5);
+                half_max_random = interp1(hill_random_point, x_sol, 0.5);
+                half_max_cilium = interp1(hill_cilium, x_sol, 0.5);
                 
                 half_max_average_array = [half_max_average_array, half_max_average];
-                            
-                interp_random = interp1(y_sol_random, rand_x_points, k_d);
-                interp_average = interp1(y_sol_average, x_sol, k_d);
-                interp_cilium = interp1(y_sol_cilium, mid_point, k_d);
-                
-                interp_random_low_res = interp1(y_sol_random, rand_x_points, k_d_low_res);
-                interp_average_low_res = interp1(y_sol_average, x_sol, k_d_low_res);
-                interp_cilium_low_res = interp1(y_sol_cilium, x_sol, k_d_low_res);
-                
-                average_interp_nruns(j, :) = interp_average;
-                rand_interp_nruns(j, :) = interp_random;
-                cilium_interp_nruns(j, :) = interp_cilium;
-                
-                average_interp_nruns_low_res(j, :) = interp_average_low_res;
-                rand_interp_nruns_low_res(j, :) = interp_random_low_res;
-                cilium_interp_nruns_low_res(j, :) = interp_cilium_low_res;
-                
+                half_max_cilium_array = [half_max_cilium_array, half_max_cilium];
+                half_max_random_array = [half_max_random_array, half_max_random];
+                               
                 piecewise_const_average = [];
                 piecewise_const_random = [];
                 piecewise_const_cilium = [];
@@ -410,47 +384,36 @@ for k = 1:numel(names)
                 conc_per_iteration_cilium(j, :) = piecewise_const_cilium;
                 
             end
-  
-          
-            mean_pos_random = nanmean(rand_interp_nruns);
-            std_pos_random = nanstd(rand_interp_nruns);
-            
-            mean_pos_average = nanmean(average_interp_nruns);
-            std_pos_average = nanstd(average_interp_nruns)
-  
-            mean_pos_cilium = nanmean(cilium_interp_nruns);
-            std_pos_cilium = nanstd(cilium_interp_nruns);
-            
-            mean_pos_random_low_res = nanmean(rand_interp_nruns_low_res);
-            std_pos_random_low_res = nanstd(rand_interp_nruns_low_res);
-            
-            mean_pos_average_low_res = nanmean(average_interp_nruns_low_res);
-            std_pos_average_low_res = nanstd(average_interp_nruns_low_res);
-            
-            mean_pos_cilium_low_res = nanmean(cilium_interp_nruns_low_res);
-            std_pos_cilium_low_res = nanstd(cilium_interp_nruns_low_res);
-            
+              
            mean_x_average = nanmean(half_max_average_array); 
            std_x_average = nanstd(half_max_average_array);
            
-           mean_x_pos_average = [mean_x_pos_average, mean_x_average]
-           std_x_pos_average = [std_x_pos_average, std_x_average]
+           mean_x_cilium = nanmean(half_max_cilium_array); 
+           std_x_cilium = nanstd(half_max_cilium_array);
            
+           mean_x_random = nanmean(half_max_random_array);
+           std_x_random = nanstd(half_max_random_array);
+           
+           mean_x_pos_average = [mean_x_pos_average, mean_x_average];
+           std_x_pos_average = [std_x_pos_average, std_x_average];
+           
+           mean_x_pos_cilium = [mean_x_pos_cilium, mean_x_cilium];
+           std_x_pos_cilium = [std_x_pos_cilium, std_x_cilium];
+           
+           mean_x_pos_random = [mean_x_pos_random, mean_x_random];
+           std_x_pos_random = [std_x_pos_random,std_x_random];
             
         end
-              
+       
         % write data
         if write
-            writetable(table(k_d', mean_pos_cilium', std_pos_cilium', 'VariableNames', {'k_d', 'mean_pos_cilium', 'std_pos_cilium'}), filename_readout_pos_cilium);
-            writetable(table(k_d', mean_pos_average', std_pos_average', 'VariableNames', {'k_d', 'mean_pos_average', 'std_pos_average'}), filename_readout_pos_average);
-            writetable(table(k_d', mean_pos_random', std_pos_random', 'VariableNames', {'k_d', 'mean_pos_random', 'std_pos_random'}), filename_readout_pos_random);
-            writetable(table(readout_pos', 'VariableNames', {'pos'}), position_file);
-            writetable(table(k_d_low_res', mean_pos_cilium_low_res', std_pos_cilium_low_res', 'VariableNames', {'k_d', 'mean_pos_cilium', 'std_pos_cilium'}), filename_readout_pos_cilium_low_res);
-            writetable(table(k_d_low_res', mean_pos_average_low_res', std_pos_average_low_res', 'VariableNames', {'k_d', 'mean_pos_average', 'std_pos_average'}), filename_readout_pos_average_low_res);
-            writetable(table(k_d_low_res', mean_pos_random_low_res', std_pos_random_low_res', 'VariableNames', {'k_d', 'mean_pos_random', 'std_pos_random'}), filename_readout_pos_random_low_res);
+             writetable(table(k_d', mean_x_pos_average', std_x_pos_average', 'VariableNames', {'k_d', 'mean_pos_average', 'std_pos_average'}), filename_readout_pos_average);
+             writetable(table(k_d', mean_x_pos_random', std_x_pos_random', 'VariableNames', {'k_d', 'mean_pos_random', 'std_pos_random'}), filename_readout_pos_random);
+             writetable(table(k_d', mean_x_pos_cilium', std_x_pos_cilium', 'VariableNames', {'k_d', 'mean_pos_cilium', 'std_pos_cilium'}), filename_readout_pos_cilium);
         end
     else
     % read data
+   
       
     end
     %{
