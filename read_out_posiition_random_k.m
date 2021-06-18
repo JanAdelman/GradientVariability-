@@ -36,13 +36,11 @@ Stdfun = @(x) nanstd(x);
 
 fitopt = statset('TolFun', tol, 'TolX', tol);
 
+% function to calculate hill output 
 hill = @(x,k_hill) 1*(x ./ (x+k_hill));
 
-close all
-%f1 = figure('Name', 'Individual gradients', 'Position', [0 0 2000 800]);
-
-CV_K = [0.001, 0.1, 1, 10];
-
+% set CV_k to add noise to K values 
+CV_K = [0.001, 0.1, 0.3, 1];
 
 % high resolution k values
 k_d_small = fliplr(linspace(0.00001, 0.00009,35));
@@ -50,73 +48,33 @@ k_d_medium = fliplr(linspace(0.0001, 0.001, 20));
 k_d_upper_medium = fliplr(linspace(0.0011, 0.01, 20));
 k_d_big = fliplr(linspace(0.011, 0.4, 25));
 
-% low resolution k values (maybe better for plotting) 
-k_d_small_low_res = fliplr(linspace(0.00001, 0.00009,5));
-k_d_medium_low_res = fliplr(linspace(0.0001, 0.001, 5));
-k_d_upper_medium_low_res = fliplr(linspace(0.0011, 0.01, 5));
-k_d_big_low_res = fliplr(linspace(0.011, 0.4, 5));
-
+% readout positions defined by K
 k_d = [k_d_big, k_d_upper_medium, k_d_medium, k_d_small];
-k_d_low_res = [k_d_big_low_res, k_d_upper_medium_low_res, k_d_medium_low_res, k_d_small_low_res];
 
-readout_pos = linspace(0,LP,101);
-
-%% vary molecular noise
-f4 = figure('Name', 'Spread of Variability in Concentration for different Positions', 'Position', [0 0 2000 800]);
-f2 = figure('Name', 'Spread of Variability in Concentration for different Positions', 'Position', [0 0 2000 800]);
-%f3 = figure('Name', 'Dependency of gradient variability on molecular noise', 'Position', [0 0 2000 800]);
-
+% loop over all CV_K variabilities 
 for k = 1:numel(CV_K)
     %{
     filename_cilium = ['CV_K_Parameter_Tables/read_out_precision_cilium_conc_' num2str(CV_K(k)) '.csv'];
     filename_random = ['CV_K_Parameter_Tables/read_out_precision_random_conc_' num2str(CV_K(k)) '.csv'];
     filename_average = ['CV_K_Parameter_Tables/read_out_precision_average_conc_' num2str(CV_K(k)) '.csv'];
     %}
-    filename_readout_pos_average = ['CV_K_Parameter_Tables/readout_pos_average_' num2str(CV_K(k)) '.csv'];
-    filename_readout_pos_cilium = ['CV_K_Parameter_Tables/readout_pos_cilium_' num2str(CV_K(k)) '.csv'];
-    filename_readout_pos_random = ['CV_K_Parameter_Tables/readout_pos_random_' num2str(CV_K(k)) '.csv'];
+    filename_readout_pos_average = ['CV_K_Parameter_Tables/readout_pos_average_' num2str(CV_K(k)) '_lin_inter.csv'];
+    filename_readout_pos_cilium = ['CV_K_Parameter_Tables/readout_pos_cilium_' num2str(CV_K(k)) '_lin_inter.csv'];
+    filename_readout_pos_random = ['CV_K_Parameter_Tables/readout_pos_random_' num2str(CV_K(k)) '_lin_inter.csv'];
         
     if simulate
         
-        conc_average = NaN(length(CV), length(readout_pos));
-        conc_SE_average = NaN(length(CV), length(readout_pos));
-        conc_CV_average = NaN(length(CV), length(readout_pos));
-        conc_CV_SE_average = NaN(length(CV), length(readout_pos));
-        conc_random = NaN(length(CV), length(readout_pos));
-        conc_SE_random = NaN(length(CV), length(readout_pos));
-        conc_CV_SE_random = NaN(length(CV), length(readout_pos));
-        conc_CV_random = NaN(length(CV), length(readout_pos));
-        conc_cilium = NaN(length(CV), length(readout_pos));
-        conc_SE_cilium = NaN(length(CV), length(readout_pos));
-        conc_CV_cilium = NaN(length(CV), length(readout_pos));
-        conc_CV_SE_cilium = NaN(length(CV), length(readout_pos));
-        conc_std_average = NaN(length(CV), length(readout_pos));
-        conc_std_random = NaN(length(CV), length(readout_pos));
-        conc_std_cilium = NaN(length(CV), length(readout_pos));
-        conc_std_SE_cilium = NaN(length(CV), length(readout_pos));
-        
+        % dataframe to store mean values
         mean_x_pos_average =  NaN(length(CV), length(k_d));
         mean_x_pos_random = NaN(length(CV), length(k_d));
         mean_x_pos_cilium = NaN(length(CV), length(k_d));
-               
-        % loop over variabilities
-        for i = 1:length(CV_K)
-            
-            % loop over several independent runs
-            
-            conc_per_iteration_average = NaN(nruns, length(readout_pos));
-            conc_per_iteration_random = NaN(nruns, length(readout_pos));
-            conc_per_iteration_cilium = NaN(nruns, length(readout_pos));
-            
-            rand_interp_nruns = NaN(nruns, length(k_d));
-            average_interp_nruns = NaN(nruns, length(k_d));
-            cilium_interp_nruns = NaN(nruns, length(k_d));
-            
-            rand_interp_nurns_low_res = NaN(nruns, length(k_d_low_res));
-            average_interp_nruns_low_res = NaN(nruns, length(k_d_low_res));
-            cilium_interp_nruns_low_res = NaN(nruns, length(k_d_low_res));
-            
-            for j = 1:nruns
+
+        % dataframe to store all runs 
+        rand_interp_nruns = NaN(nruns, length(k_d));
+        average_interp_nruns = NaN(nruns, length(k_d));
+        cilium_interp_nruns = NaN(nruns, length(k_d));
+                       
+        for j = 1:nruns
                 
                  % initialise arrays for variable cell size          
                 l_s_temp = [];
@@ -233,6 +191,7 @@ for k = 1:numel(CV_K)
                     
                     k_noisy = random(logndist(k_d(element), k_d(element) * CV_K(k)), 1, 1);
                     k_noise = [k_noise, k_noisy];
+                    
                 end
                 
                 % get initial solution 
@@ -330,74 +289,38 @@ for k = 1:numel(CV_K)
                     
                                       
                 end 
-                %{
-                for element = 1:numel(k_d)
-                    
-                    k_d_iter = k_d(element);
-                            
-                    hill_random_point = hill(y_sol_random, k_d_iter);
-                    hill_average_conc = hill(y_sol_average, k_d_iter);
-                    hill_cilium = hill(y_sol_cilium, k_d_iter);
-                
-                    %figure(f4)
-                    %plot(y_sol_average, hill_average_conc)
-                    %hold on
-                    
-               end
-                %}
           
-                
+                % get the location, where the k_noise concentration is
+                % reached (cubic interpolation)
+               
                 interp_random = pchip(y_sol_random, rand_x_points, k_noise);
                 interp_average = pchip(y_sol_average, x_sol, k_noise);
                 interp_cilium = pchip(y_sol_cilium, mid_point, k_noise);
-                
+              
+                % linear interpolation 
+                %{
+                interp_random = interp1(y_sol_random, rand_x_points, k_noise);
+                interp_average = interp1(y_sol_average, x_sol, k_noise);
+                interp_cilium = interp1(y_sol_cilium, mid_point, k_noise);
+                %}
                                
+                % add all runs to a dataframe               
                 average_interp_nruns(j, :) = interp_average;
                 rand_interp_nruns(j, :) = interp_random;
                 cilium_interp_nruns(j, :) = interp_cilium;
                
             
-            end
-  
-            % Caculate summary statistics for the nruns
-            % calculate the mean concentration at each position 
-            %{
-            conc_average(i, :) = mean(conc_per_iteration_average);
-            conc_random(i, :) = mean(conc_per_iteration_random);
-            conc_cilium(i, :) = mean(conc_per_iteration_cilium);
-                                
-            % calculate the standard error at each position               
-            conc_SE_average(i, :) = SEfun(conc_per_iteration_average);
-            conc_SE_random(i, :) = SEfun(conc_per_iteration_random);
-            conc_SE_cilium(i, :) = SEfun(conc_per_iteration_cilium);
-        
-            % calculate standard deviation at each position
-            conc_std_average(i, :) = Stdfun(conc_per_iteration_average);
-            conc_std_random(i, :) = Stdfun(conc_per_iteration_random);
-            conc_std_cilium(i, :) = Stdfun(conc_per_iteration_cilium);
-                       
-            conc_std_SE_cilium(i, :) =  std(bootstrp(nboot, SEfun, conc_std_cilium'));
-     
-            % calculate the coefficient of variation at each position 
-            conc_CV_average(i, :) = CVfun((conc_per_iteration_average));
-            conc_CV_random(i, :) = CVfun((conc_per_iteration_random));
-            conc_CV_cilium(i, :) = CVfun((conc_per_iteration_cilium));
-        
-            % calculate the SE for the coefficient of variation 
-            conc_CV_SE_average(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_average));
-            conc_CV_SE_random(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_random));
-            conc_CV_SE_cilium(i, :) =  std(bootstrp(nboot, CVfun, conc_per_iteration_cilium));
-            %}
-            mean_pos_random = nanmean(rand_interp_nruns);
-            std_pos_random = nanstd(rand_interp_nruns);
-            
-            mean_pos_average = nanmean(average_interp_nruns);
-            std_pos_average = nanstd(average_interp_nruns)
-  
-            mean_pos_cilium = nanmean(cilium_interp_nruns);
-            std_pos_cilium = nanstd(cilium_interp_nruns);
-            
         end
+            
+        mean_pos_random = nanmean(rand_interp_nruns);
+        std_pos_random = nanstd(rand_interp_nruns);
+            
+        mean_pos_average = nanmean(average_interp_nruns);
+        std_pos_average = nanstd(average_interp_nruns)
+  
+        mean_pos_cilium = nanmean(cilium_interp_nruns);
+        std_pos_cilium = nanstd(cilium_interp_nruns);    
+      
               
         % write data
         if write
@@ -412,47 +335,8 @@ for k = 1:numel(CV_K)
             %}
         end
         
-    % read data
-      
     end
-    %{
-    % plot the relationship between CV_k and lambda
-    figure(f2)
-    
-    subplot(3,1,1)
-    errorbar(readout_pos, conc_cilium(i, :), conc_SE_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')   
-    hold on
-    errorbar(readout_pos, conc_random(i, :), conc_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
-    errorbar(readout_pos, conc_average(i, :), conc_SE_average(i, :), 'bo', 'LineWidth', LineWidth)   
-    xlabel(['Position x [µm]'])
-    ylabel('µ_{C(x)}')
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear')
-    grid on
-    
-    subplot(3,1,2);
-    errorbar(readout_pos, conc_std_cilium(i, :), conc_std_SE_cilium(i, :),'bo', 'LineWidth', LineWidth, 'Color', 'g')   
-    %plot(readout_pos, conc_std_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')
-    hold on
-    %errorbar(readout_pos, conc_std_random(i, :), conc_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
-    %errorbar(readout_pos, conc_std_average(i, :), conc_SE_average(i, :),'bo', 'LineWidth', LineWidth)      
-    plot(readout_pos, conc_std_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
-    plot(readout_pos, conc_std_average(i, :), 'bo', 'LineWidth', LineWidth')
-    xlabel(['Position x [µm]'])
-    ylabel('\sigma_{C(x)}')
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear')
-    grid on
-    
-    % plot the relationship between CV_k and C_0
-    subplot(3, 1, 3);
-    errorbar(readout_pos, conc_CV_cilium(i, :), conc_CV_SE_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')
-    hold on
-    errorbar(readout_pos, conc_CV_random(i, :), conc_CV_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')   
-    errorbar(readout_pos, conc_CV_average(i, :), conc_CV_SE_average(i, :), 'bo', 'LineWidth', LineWidth)
-    xlabel(['Position x [µm]'])
-    ylabel(['CV_{C(x)} =  \sigma_{C(x)}/µ_{C(x)}'])
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear', 'YScale', 'log')
-    grid on
-   %}
+ 
 end
 
  %% functions for the ODE
