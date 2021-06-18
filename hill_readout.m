@@ -9,7 +9,7 @@ FontSize = 18;
 
 % parameters
 tol = 1e-10; % numerical tolerance for solver and fitting
-nruns = 5; % number of independent simulation runs
+nruns = 10; % number of independent simulation runs
 nboot = 1e4; % number of bootstrap samples for error estimation
 diameter = 4.9; % cell diameter [µm]
 mu_D = 0.033; % mean morphogen diffusion constant [µm^2/s]
@@ -19,8 +19,7 @@ mu_d = mu_D/mu_lambda^2; % mean morphogen degradation rate [1/s]
 mu_p = mu_d; % mean morphogen production rate [substance/(µm^3*s)]
 ncS = 5; % number of cells in the source domain
 ncP = 50; % number of cells in the patterning domain
-%CV = [0.01:0.01:0.09 0.1:0.05:0.95 1:0.5:10]'; % coefficient of variation of the kinetic parameters
-CV = [0.3];
+CV = [0.3]; % coefficient of variation of the kinetic parameters
 %plot_CV = CV(14); % plot the gradients for this CV value
 CV_area = 0.5;
 % analytical deterministic solution
@@ -38,65 +37,23 @@ fitopt = statset('TolFun', tol, 'TolX', tol);
 
 hill = @(x,k_hill) 1*(x ./ (x + k_hill));
 
-close all
-%f1 = figure('Name', 'Individual gradients', 'Position', [0 0 2000 800]);
-%names = {'p', 'd', 'D', 'all'};
-names = {'p'};
-
 % high resolution k values
 k_d_small = fliplr(linspace(0.00001, 0.00009,35));
 k_d_medium = fliplr(linspace(0.0001, 0.001, 20));
 k_d_upper_medium = fliplr(linspace(0.0011, 0.01, 20));
 k_d_big = fliplr(linspace(0.011, 0.4, 25));
 
-% low resolution k values (maybe better for plotting) 
-k_d_small_low_res = fliplr(linspace(0.00001, 0.00009,5));
-k_d_medium_low_res = fliplr(linspace(0.0001, 0.001, 5));
-k_d_upper_medium_low_res = fliplr(linspace(0.0011, 0.01, 5));
-k_d_big_low_res = fliplr(linspace(0.011, 0.4, 5));
-
 k_d = [k_d_big, k_d_upper_medium, k_d_medium, k_d_small];
-k_d = [0.1, 0.01];
-%k_d = [0.1, 0.001, 0.01, 0.0001, 0.00001, 0.00001];
-%k_d_low_res = [k_d_big_low_res, k_d_upper_medium_low_res, k_d_medium_low_res, k_d_small_low_res];
 
-readout_pos = linspace(0,LP,101);
+CV_K = [0.001, 0.1, 0.3];
 
-%% vary molecular noise
-f4 = figure('Name', 'Spread of Variability in Concentration for different Positions', 'Position', [0 0 2000 800]);
-f2 = figure('Name', 'Spread of Variability in Concentration for different Positions', 'Position', [0 0 2000 800]);
-%f3 = figure('Name', 'Dependency of gradient variability on molecular noise', 'Position', [0 0 2000 800]);
-                    
-% k = p, d, D, and all three together
-for k = 1:numel(names)
+for k = 1:numel(CV_K)
    
-    filename_readout_pos_average = 'readout_pos_average_hill.csv';
-    filename_readout_pos_cilium = 'readout_pos_cilium_hill.csv';
-    filename_readout_pos_random = 'readout_pos_random_hill.csv';
- 
-    if names{k} == 'D'
-    
-    end
-        
+    filename_readout_pos_average = ['CV_K_Parameter_Tables_Hill/readout_pos_average_' num2str(CV_K(k)) '_hill.csv'];
+    filename_readout_pos_cilium = ['CV_K_Parameter_Tables_Hill/readout_pos_cilium_' num2str(CV_K(k)) '_hill.csv'];
+    filename_readout_pos_random = ['CV_K_Parameter_Tables_Hill/readout_pos_random_' num2str(CV_K(k)) '_hill.csv'];
+         
     if simulate
-        %{
-        conc_average = NaN(length(CV), length(readout_pos));
-        conc_SE_average = NaN(length(CV), length(readout_pos));
-        conc_CV_average = NaN(length(CV), length(readout_pos));
-        conc_CV_SE_average = NaN(length(CV), length(readout_pos));
-        conc_random = NaN(length(CV), length(readout_pos));
-        conc_SE_random = NaN(length(CV), length(readout_pos));
-        conc_CV_SE_random = NaN(length(CV), length(readout_pos));
-        conc_CV_random = NaN(length(CV), length(readout_pos));
-        conc_cilium = NaN(length(CV), length(readout_pos));
-        conc_SE_cilium = NaN(length(CV), length(readout_pos));
-        conc_CV_cilium = NaN(length(CV), length(readout_pos));
-        conc_CV_SE_cilium = NaN(length(CV), length(readout_pos));
-        conc_std_average = NaN(length(CV), length(readout_pos));
-        conc_std_random = NaN(length(CV), length(readout_pos));
-        conc_std_cilium = NaN(length(CV), length(readout_pos));
-        conc_std_SE_cilium = NaN(length(CV), length(readout_pos));
-        %}
         
         mean_x_pos_average =  [];
         mean_x_pos_random = [];
@@ -216,16 +173,6 @@ for k = 1:numel(names)
                 d = mu_d * ones(nc, 1);
                 D = mu_D * ones(nc, 1);
 
-                % draw random kinetic parameters for each cell
-                if k == 1 || k == 4
-                    p = random(logndist(mu_p, mu_p * CV(1)), nc, 1);
-                end
-                if k == 2 || k == 4
-                    d = random(logndist(mu_d, mu_d * CV(1)), nc, 1);
-                end
-                if k == 3 || k == 4
-                    D = random(logndist(mu_D, mu_D * CV(1)), nc, 1);
-                end
                 p = random(logndist(mu_p, mu_p * CV(1)), nc, 1);
                 d = random(logndist(mu_d, mu_d * CV(1)), nc, 1); 
                 D = random(logndist(mu_D, mu_D * CV(1)), nc, 1);
@@ -327,65 +274,37 @@ for k = 1:numel(names)
                 end 
               
                 k_d_iter = k_d(i);
-                            
-                hill_random_point = hill(y_sol_random, k_d_iter);
-                hill_average_conc = hill(y_sol_average, k_d_iter);
-                hill_cilium = hill(y_sol_cilium, k_d_iter);
+                
+                % add noise to system 
+                k_noisy = random(logndist(k_d_iter, k_d_iter * CV_K(k)), 1, 1);
+                
+                hill_random_point = hill(y_sol_random, k_noisy);
+                hill_average_conc = hill(y_sol_average, k_noisy);
+                hill_cilium = hill(y_sol_cilium, k_noisy);
            
                 %{
-                figure(f4)
-                plot(x_sol, hill_average_conc)
-                hold on
-                %}
    
                 half_max_average = interp1(hill_average_conc, x_sol, 0.5);
                 half_max_random = interp1(hill_random_point, x_sol, 0.5);
                 half_max_cilium = interp1(hill_cilium, x_sol, 0.5);
                 
+                %}
+                
+                % cubic interplation 
+                half_max_average = pchip(hill_average_conc, x_sol, 0.5);
+                half_max_random = pchip(hill_random_point, rand_x_points, 0.5);
+                half_max_cilium = pchip(hill_cilium, mid_point, 0.5);
+            
+                
                 half_max_average_array = [half_max_average_array, half_max_average];
                 half_max_cilium_array = [half_max_cilium_array, half_max_cilium];
                 half_max_random_array = [half_max_random_array, half_max_random];
-                               
-                piecewise_const_average = [];
-                piecewise_const_random = [];
-                piecewise_const_cilium = [];
+
                 
-                % loop through readout position to get the concenctration
-                % c(x) at each x value. (Piecewise constant function)
-                for idx = 1:length(readout_pos)
-                    
-                    % if at tthe end, set the index to the position of the
-                    % last cell 
-                    if readout_pos(idx) >= x_sol(end)
-                        B = length(x_sol);
-                        piecewise_const_average = [piecewise_const_average, y_sol_average(B)];
-                        piecewise_const_random = [piecewise_const_random, y_sol_random(B)];
-                        piecewise_const_cilium = [piecewise_const_cilium, y_sol_cilium(B)];
-                        
-                    end 
-                    
-                    % find indices where the readout position is smaller
-                    % than the x value defined by a cell. The Index one to
-                    % the left defines the value of of the concentration
-                    % c(x). 
-                    
-                    B = find(readout_pos(idx) < x_sol);
-                    B = min(B)-1;
-                    
-                    piecewise_const_average = [piecewise_const_average, y_sol_average(B)]; 
-                    piecewise_const_random = [piecewise_const_random, y_sol_random(B)];
-                    piecewise_const_cilium = [piecewise_const_cilium, y_sol_cilium(B)];
-                                        
-                end
-                % get all concenctrations for one iteration at each
-                % location x. 
-                conc_per_iteration_average(j, :) = piecewise_const_average;
-                conc_per_iteration_random(j, :) = piecewise_const_random;
-                conc_per_iteration_cilium(j, :) = piecewise_const_cilium;
                 
             end
               
-           mean_x_average = nanmean(half_max_average_array); 
+           mean_x_average = nanmean(half_max_average_array);
            std_x_average = nanstd(half_max_average_array);
            
            mean_x_cilium = nanmean(half_max_cilium_array); 
@@ -412,48 +331,12 @@ for k = 1:numel(names)
              writetable(table(k_d', mean_x_pos_cilium', std_x_pos_cilium', 'VariableNames', {'k_d', 'mean_pos_cilium', 'std_pos_cilium'}), filename_readout_pos_cilium);
         end
     else
+        
     % read data
    
       
     end
-    %{
-    % plot the relationship between CV_k and lambda
-    figure(f2)
-    
-    subplot(3,1,1)
-    errorbar(readout_pos, conc_cilium(i, :), conc_SE_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')   
-    hold on
-    errorbar(readout_pos, conc_random(i, :), conc_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
-    errorbar(readout_pos, conc_average(i, :), conc_SE_average(i, :), 'bo', 'LineWidth', LineWidth)   
-    xlabel(['Position x [µm]'])
-    ylabel('µ_{C(x)}')
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear')
-    grid on
-    
-    subplot(3,1,2);
-    errorbar(readout_pos, conc_std_cilium(i, :), conc_std_SE_cilium(i, :),'bo', 'LineWidth', LineWidth, 'Color', 'g')   
-    %plot(readout_pos, conc_std_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')
-    hold on
-    %errorbar(readout_pos, conc_std_random(i, :), conc_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
-    %errorbar(readout_pos, conc_std_average(i, :), conc_SE_average(i, :),'bo', 'LineWidth', LineWidth)      
-    plot(readout_pos, conc_std_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')
-    plot(readout_pos, conc_std_average(i, :), 'bo', 'LineWidth', LineWidth')
-    xlabel(['Position x [µm]'])
-    ylabel('\sigma_{C(x)}')
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear')
-    grid on
-    
-    % plot the relationship between CV_k and C_0
-    subplot(3, 1, 3);
-    errorbar(readout_pos, conc_CV_cilium(i, :), conc_CV_SE_cilium(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'g')
-    hold on
-    errorbar(readout_pos, conc_CV_random(i, :), conc_CV_SE_random(i, :), 'bo', 'LineWidth', LineWidth, 'Color', 'r')   
-    errorbar(readout_pos, conc_CV_average(i, :), conc_CV_SE_average(i, :), 'bo', 'LineWidth', LineWidth)
-    xlabel(['Position x [µm]'])
-    ylabel(['CV_{C(x)} =  \sigma_{C(x)}/µ_{C(x)}'])
-    set(gca, 'LineWidth', LineWidth, 'FontSize', FontSize, 'XScale', 'linear', 'YScale', 'log')
-    grid on
-   %}
+ 
 end
 
  %% functions for the ODE
