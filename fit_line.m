@@ -1,12 +1,24 @@
 function fit_line
 
 % read the data 
+
+% data where the cell diameter is varied and cv_k = 0.3 & cv_area = 0.5
 T_diff = readtable('Parameter_tables/Mean_Diameter_change_CV_Diff.csv');
 T_all = readtable('Parameter_tables/Mean_Diameter_change_vs_CV_all.csv');
 T_p = readtable('Parameter_tables/Mean_Diameter_change_vs_CV_p.csv');
 T_d = readtable('Parameter_tables/Mean_Diameter_change_vs_CV_d.csv');
 
+% original publication where domain lenght L is changed, cv_area = 0.5
+% added
 T_length_all =  readtable('script_from_paper_cv_added/L_vs_CV_vs_cv_area_0.5_all.csv');
+
+% Readout position accuracy, hill function applied or K as threshold
+% concentration chosen 
+T_hill = readtable('readout_pos_average_hill_cube.csv');
+T_indirect = readtable('readout_pos_average_cube.csv');
+
+% Import data to find average cell diameter
+T_area_data = readtable('Area_Data/average_cell_area_different_tissues.csv')
 
 %=========================================================================%
 % model using polyfit()
@@ -68,6 +80,22 @@ mdl_d_cv0 = fitnlm(log(T_d.diameter_lambda), log(T_d.CV_0), linear_function, bet
 % fit the domain lenght vary data with cv_area = 0.5 added 
 mdl_length_cv_0 = fitnlm(T_length_all.L, T_length_all.CV_0, quadratic_function, beta_q)
 mdl_length_cv_lambda = fitnlm(log(T_length_all.L), log(T_length_all.CV_lambda), linear_function, beta0)
+
+%fit linear function to posiitional error data 
+mdl_hill_indirect = fitnlm(T_indirect.mean_pos_average, T_indirect.std_pos_average, linear_function, beta0)
+mdl_hill = fitnlm(T_hill.mean_pos_average, T_hill.std_pos_average, linear_function, beta0)
+
+
+
+%=========================================================================%
+% Use area data to calculate average diameter of cells 
+%=========================================================================%
+
+names = T_area_data.(1)
+areas = T_area_data.(2)
+
+% calcualte diameters for each cell type
+diameter = 2*sqrt(areas/pi)
 
 
 %=========================================================================%
