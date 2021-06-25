@@ -40,39 +40,67 @@ fitopt = statset('TolFun', tol, 'TolX', tol);
 hill = @(x,k_hill) 1*(x ./ (x+k_hill));
 
 % set CV_k to add noise to K values 
-CV_K = [0.001, 0.1, 0.3, 1];
+%CV_K = [0, 0.001, 0.1, 0.3];
+CV_K = [1];
+% read out concentrations k
+k_d = logspace(log10(C(0)), log10(C(LP)), 100);
 
-% high resolution k values
-k_d_small = fliplr(linspace(0.00001, 0.00009,35));
-k_d_medium = fliplr(linspace(0.0001, 0.001, 20));
-k_d_upper_medium = fliplr(linspace(0.0011, 0.01, 20));
-k_d_big = fliplr(linspace(0.011, 0.4, 25));
+filename_pos_neg_average_lin = ['CV_K_Parameter_Tables/pos_neg_average_lin_1.csv'];
+filename_pos_neg_average = ['CV_K_Parameter_Tables/pos_neg_average_1.csv'];
+filename_pos_neg_cilium_lin = ['CV_K_Parameter_Tables/pos_neg_cilium_lin_1.csv'];
+filename_pos_neg_cilium = ['CV_K_Parameter_Tables/pos_neg_cilium_1.csv'];
+filename_pos_neg_random_lin = ['CV_K_Parameter_Tables/pos_neg_random_lin_1.csv'];
+filename_pos_neg_random = ['CV_K_Parameter_Tables/pos_neg_random_1.csv'];
 
-% readout positions defined by K
-k_d = [k_d_big, k_d_upper_medium, k_d_medium, k_d_small];
+pos_neg_average_lin = NaN(length(CV_K), 2);
+pos_neg_average = NaN(length(CV_K), 2);
+pos_neg_cilium_lin = NaN(length(CV_K), 2);
+pos_neg_cilium = NaN(length(CV_K), 2);
+pos_neg_random_lin = NaN(length(CV_K), 2);
+pos_neg_random = NaN(length(CV_K), 2);
 
 % loop over all CV_K variabilities 
 for k = 1:numel(CV_K)
-    %{
+
     filename_cilium = ['CV_K_Parameter_Tables/read_out_precision_cilium_conc_' num2str(CV_K(k)) '.csv'];
     filename_random = ['CV_K_Parameter_Tables/read_out_precision_random_conc_' num2str(CV_K(k)) '.csv'];
     filename_average = ['CV_K_Parameter_Tables/read_out_precision_average_conc_' num2str(CV_K(k)) '.csv'];
-    %}
-    filename_readout_pos_average = ['CV_K_Parameter_Tables/readout_pos_average_' num2str(CV_K(k)) '_lin_inter.csv'];
-    filename_readout_pos_cilium = ['CV_K_Parameter_Tables/readout_pos_cilium_' num2str(CV_K(k)) '_lin_inter.csv'];
-    filename_readout_pos_random = ['CV_K_Parameter_Tables/readout_pos_random_' num2str(CV_K(k)) '_lin_inter.csv'];
-        
+
+    filename_readout_pos_average_lin = ['CV_K_Parameter_Tables/readout_pos_average_' num2str(CV_K(k)) '_lin_inter.csv'];
+    filename_readout_pos_cilium_lin = ['CV_K_Parameter_Tables/readout_pos_cilium_' num2str(CV_K(k)) '_lin_inter.csv'];
+    filename_readout_pos_random_lin = ['CV_K_Parameter_Tables/readout_pos_random_' num2str(CV_K(k)) '_lin_inter.csv'];
+    
     if simulate
-        
+        %{
         % dataframe to store mean values
         mean_x_pos_average =  NaN(length(CV), length(k_d));
         mean_x_pos_random = NaN(length(CV), length(k_d));
         mean_x_pos_cilium = NaN(length(CV), length(k_d));
-
-        % dataframe to store all runs 
+        %}
+        
+        % dataframe to store all cubic interpolated runs 
         rand_interp_nruns = NaN(nruns, length(k_d));
         average_interp_nruns = NaN(nruns, length(k_d));
         cilium_interp_nruns = NaN(nruns, length(k_d));
+        
+        % dataframe to storoe all linear interpolated runs
+        rand_interp_nruns_lin = NaN(nruns, length(k_d));
+        average_interp_nruns_lin = NaN(nruns, length(k_d));
+        cilium_interp_nruns_lin = NaN(nruns, length(k_d));
+        
+        store_max_index_neg_average = 0;
+        store_max_index_neg_cilium = 0;
+        store_max_index_neg_random = 0;
+        store_max_index_neg_average_lin = 0;
+        store_max_index_neg_cilium_lin = 0;
+        store_max_index_neg_random_lin = 0;
+        
+        store_min_index_pos_average = length(k_d);
+        store_min_index_pos_cilium = length(k_d);
+        store_min_index_pos_random = length(k_d);
+        store_min_index_pos_average_lin = length(k_d);
+        store_min_index_pos_cilium_lin = length(k_d);
+        store_min_index_pos_random_lin = length(k_d);
                        
         for j = 1:nruns
                 
@@ -289,56 +317,180 @@ for k = 1:numel(CV_K)
                     
                                       
                 end 
+                
           
                 % get the location, where the k_noise concentration is
                 % reached (cubic interpolation)
-               
+                               
                 interp_random = pchip(y_sol_random, rand_x_points, k_noise);
                 interp_average = pchip(y_sol_average, x_sol, k_noise);
                 interp_cilium = pchip(y_sol_cilium, mid_point, k_noise);
-              
+                 
                 % linear interpolation 
-                %{
-                interp_random = interp1(y_sol_random, rand_x_points, k_noise);
-                interp_average = interp1(y_sol_average, x_sol, k_noise);
-                interp_cilium = interp1(y_sol_cilium, mid_point, k_noise);
-                %}
+                
+                interp_random_lin = interp1(y_sol_random, rand_x_points, k_noise ,'linear','extrap');
+                interp_average_lin = interp1(y_sol_average, x_sol, k_noise,'linear','extrap');
+                interp_cilium_lin = interp1(y_sol_cilium, mid_point, k_noise,'linear','extrap');
+                
+                % find negative points in array
+                
+                neg_average = find(interp_average<0);
+                neg_cilium = find(interp_cilium<0);
+                neg_random = find(interp_random<0);
+                
+                if max(neg_average) > store_max_index_neg_average
+                
+                    store_max_index_neg_average = max(neg_average);                   
+                             
+                end
+                
+                if max(neg_cilium) > store_max_index_neg_cilium
+                
+                    store_max_index_neg_cilium = max(neg_cilium);                   
+                             
+                end
+                
+                if max(neg_random) > store_max_index_neg_random
+                
+                    store_max_index_neg_random = max(neg_random);                   
+                             
+                end              
+                
+                pos_average = find(interp_average>245);
+                pos_cilium = find(interp_cilium>245);
+                pos_random = find(interp_random>245);
+                
+                if min(pos_average) < store_min_index_pos_average
+                
+                    store_min_index_pos_average = min(pos_average);                     
+                end
+                
+                if min(pos_cilium) < store_min_index_pos_cilium
+                
+                    store_min_index_pos_cilium = min(pos_cilium);                     
+                end
+                
+                if min(pos_random) < store_min_index_pos_random
+                
+                    store_min_index_pos_random = min(pos_random);                     
+                end
+
+                % ====================================================
+                % find negative points for linear interpolation 
+                % ====================================================
+                
+               neg_average_lin = find(interp_average_lin<0);
+               neg_cilium_lin = find(interp_cilium_lin<0);
+               neg_random_lin = find(interp_random_lin<0);
+                
+                if max(neg_average_lin) > store_max_index_neg_average_lin
+                
+                    store_max_index_neg_average_lin = max(neg_average_lin);                   
+                                 
+                end
+                
+                if max(neg_cilium_lin) > store_max_index_neg_cilium_lin
+                
+                    store_max_index_neg_cilium_lin = max(neg_cilium_lin);                   
+                                 
+                end
+                
+                if max(neg_random_lin) > store_max_index_neg_random_lin
+                
+                    store_max_index_neg_random_lin = max(neg_random_lin);                   
+                                 
+                end
                                
-                % add all runs to a dataframe               
-                average_interp_nruns(j, :) = interp_average;
-                rand_interp_nruns(j, :) = interp_random;
-                cilium_interp_nruns(j, :) = interp_cilium;
+                pos_average_lin = find(interp_average_lin>245);
+                pos_cilium_lin = find(interp_cilium_lin>245);
+                pos_random_lin = find(interp_random_lin>245);
+                
+                if min(pos_average_lin) < store_min_index_pos_average_lin
+                
+                    store_min_index_pos_average_lin = min(pos_average_lin);                   
+                  
+                end
+                
+               if min(pos_cilium_lin) < store_min_index_pos_cilium_lin
+                
+                    store_min_index_pos_cilium_lin = min(pos_cilium_lin);                   
+                  
+               end
                
-            
+              if min(pos_random_lin) < store_min_index_pos_random_lin
+                
+                   store_min_index_pos_random_lin  = min(pos_random_lin);                   
+                  
+               end
+
+                
+                rand_interp_nruns(j, :) = interp_random;
+                average_interp_nruns(j, :) = interp_average;
+                cilium_interp_nruns(j, :) = interp_cilium;
+                rand_interp_nruns_lin(j, :) = interp_random_lin;
+                average_interp_nruns_lin(j, :) = interp_average_lin;
+                cilium_interp_nruns_lin(j, :) = interp_cilium_lin;
+                
+             
         end
-            
+        
         mean_pos_random = nanmean(rand_interp_nruns);
-        std_pos_random = nanstd(rand_interp_nruns);
-            
+        std_pos_random = nanstd(rand_interp_nruns); 
+        SE_pos_random = nanstd(bootstrp(nboot, SEfun, rand_interp_nruns));
+        
         mean_pos_average = nanmean(average_interp_nruns);
-        std_pos_average = nanstd(average_interp_nruns)
+        std_pos_average = nanstd(average_interp_nruns);
+        SE_pos_average = nanstd(bootstrp(nboot, SEfun, average_interp_nruns));
   
         mean_pos_cilium = nanmean(cilium_interp_nruns);
-        std_pos_cilium = nanstd(cilium_interp_nruns);    
-      
-              
+        std_pos_cilium = nanstd(cilium_interp_nruns);
+        SE_pos_cilium = nanstd(bootstrp(nboot, SEfun, cilium_interp_nruns));
+        
+        mean_pos_random_lin = nanmean(rand_interp_nruns_lin);
+        std_pos_random_lin = nanstd(rand_interp_nruns_lin);
+        SE_pos_random_lin = nanstd(bootstrp(nboot, SEfun, rand_interp_nruns_lin));
+            
+        mean_pos_average_lin = nanmean(average_interp_nruns_lin);
+        std_pos_average_lin = nanstd(average_interp_nruns_lin);
+        SE_pos_average_lin = nanstd(bootstrp(nboot, SEfun, average_interp_nruns_lin));
+
+        mean_pos_cilium_lin = nanmean(cilium_interp_nruns_lin);
+        std_pos_cilium_lin = nanstd(cilium_interp_nruns_lin); 
+        SE_pos_cilium_lin = nanstd(bootstrp(nboot, SEfun, cilium_interp_nruns_lin));
+        
+        % Extract the position, where a negative value or value > 245
+        % occured
+        
+        pos_neg_average_lin(k, :)  =  [mean_pos_average_lin(store_max_index_neg_average_lin), mean_pos_average_lin(store_min_index_pos_average_lin)];
+        pos_neg_average(k, :) = [mean_pos_average(store_max_index_neg_average), mean_pos_average(store_min_index_pos_average)];
+        pos_neg_cilium_lin(k, :)  =  [mean_pos_cilium_lin(store_max_index_neg_cilium_lin), mean_pos_cilium_lin(store_min_index_pos_cilium_lin)];
+        pos_neg_cilium(k, :) = [mean_pos_cilium(store_max_index_neg_cilium), mean_pos_cilium(store_min_index_pos_cilium)];
+        pos_neg_random_lin(k, :)  =  [mean_pos_random_lin(store_max_index_neg_random_lin), mean_pos_random_lin(store_min_index_pos_random_lin)];
+        pos_neg_random(k, :) = [mean_pos_random(store_max_index_neg_random), mean_pos_random(store_min_index_pos_random)];
+                        
         % write data
         if write
-            writetable(table(k_d', mean_pos_cilium', std_pos_cilium', 'VariableNames', {'k_d', 'mean_pos_cilium', 'std_pos_cilium'}), filename_readout_pos_cilium);
-            writetable(table(k_d', mean_pos_average', std_pos_average', 'VariableNames', {'k_d', 'mean_pos_average', 'std_pos_average'}), filename_readout_pos_average);
-            writetable(table(k_d', mean_pos_random', std_pos_random', 'VariableNames', {'k_d', 'mean_pos_random', 'std_pos_random'}), filename_readout_pos_random);
+            % linear interpolation data 
+            writetable(table(k_d', mean_pos_cilium_lin', std_pos_cilium_lin', SE_pos_cilium_lin', 'VariableNames', {'k_d', 'mean_pos_cilium', 'std_pos_cilium', 'SE_std'}), filename_readout_pos_cilium_lin);
+            writetable(table(k_d', mean_pos_average_lin', std_pos_average_lin',SE_pos_average_lin', 'VariableNames', {'k_d', 'mean_pos_average', 'std_pos_average', 'SE_std'}), filename_readout_pos_average_lin);
+            writetable(table(k_d', mean_pos_random_lin', std_pos_random_lin', SE_pos_random_lin', 'VariableNames', {'k_d', 'mean_pos_random', 'std_pos_random', 'SE_std'}), filename_readout_pos_random_lin);
             
-            %{
-            writetable(table(readout_pos', conc_average', conc_SE_average', conc_CV_average', conc_CV_SE_average', 'VariableNames', {'pos', 'conc_average','conc_SE_average', 'conc_CV_average', 'conc_CV_SE_average'}), filename_average);
-            writetable(table(readout_pos', conc_cilium', conc_SE_cilium', conc_CV_cilium', conc_CV_SE_cilium', 'VariableNames', {'pos', 'conc_cilium','conc_SE_cilium', 'conc_CV_cilium', 'conc_CV_SE_cilium'}), filename_cilium);
-            writetable(table(readout_pos', conc_random', conc_SE_random', conc_CV_random', conc_CV_SE_random', 'VariableNames', {'pos', 'conc_random','conc_SE_random', 'conc_CV_random', 'conc_CV_SE_random'}), filename_random);
-            %}
+            % cubic interpoolation data 
+            writetable(table(k_d', mean_pos_cilium', std_pos_cilium', SE_pos_cilium', 'VariableNames', {'k_d', 'mean_pos_cilium', 'std_pos_cilium', 'SE_std'}), filename_cilium);
+            writetable(table(k_d', mean_pos_average', std_pos_average',SE_pos_average', 'VariableNames', {'k_d', 'mean_pos_average', 'std_pos_average', 'SE_std'}), filename_average);
+            writetable(table(k_d', mean_pos_random', std_pos_random',SE_pos_random', 'VariableNames', {'k_d', 'mean_pos_random', 'std_pos_random', 'SE_std'}), filename_random);
+           
         end
         
     end
  
 end
-
+writetable(table(CV_K', pos_neg_average_lin(:,1), pos_neg_average_lin(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_average_lin);
+writetable(table(CV_K', pos_neg_average(:,1), pos_neg_average(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_average);
+writetable(table(CV_K', pos_neg_cilium_lin(:,1), pos_neg_cilium_lin(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_cilium_lin);
+writetable(table(CV_K', pos_neg_cilium(:,1), pos_neg_cilium(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_cilium);
+writetable(table(CV_K', pos_neg_random_lin(:,1), pos_neg_random_lin(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_random_lin);
+writetable(table(CV_K', pos_neg_random(:,1), pos_neg_random(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_random);
  %% functions for the ODE
 % reaction-diffusion equation
 function dydx = odefun(x, y, c)
