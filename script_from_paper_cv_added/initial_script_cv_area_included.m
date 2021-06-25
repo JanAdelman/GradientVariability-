@@ -20,7 +20,7 @@ mu_p = mu_d; % mean morphogen production rate [substance/(µm^3*s)]
 ncS = 5; % number of cells in the source domain
 ncP = 50; % number of cells in the patterning domain
 CV = [0.01:0.01:0.09 0.1:0.05:0.95 1:0.5:10]'; % coefficient of variation of the kinetic parameters
-plot_CV = CV(14); % plot the gradients for this CV value
+plot_CV = CV(1); % plot the gradients for this CV value
 CV_area = 0.5;
 % analytical deterministic solution
 nc = ncS + ncP; % total number of cells
@@ -285,7 +285,7 @@ for k = 1:numel(names)
 
     drawnow
 end
-%}
+
 %% vary domain length
 ncP_arr = round(logspace(log10(20),log10(200),50))';
 CV = 0.3;
@@ -538,9 +538,10 @@ for k = 1:numel(names)
     
     drawnow
 end
-%{
+%}
 %% vary white noise
 CV_white = logspace(-8,0,161)'; % relative strength of white noise
+
 plot_CV = 0.1;
 CV = 0.3;
 CV_area = 0.5;
@@ -554,15 +555,20 @@ f6 = figure('Name', 'Dependency of gradient parameters on white noise', 'Positio
 f7 = figure('Name', 'Dependency of gradient variability on white noise', 'Position', [0 0 2000 800]);
 x = (-ncS+0.5:ncP-0.5) * diameter;
 
+
 %x = (-LS+0.5:4.9:(LP-0.5))
 % k = p, d, D, and all three together
 
-names = {'p', 'd', 'D', 'all'};
+%names = {'p', 'd', 'D', 'all'};
+names = {'all'};
+
 for k = 1:numel(names)
     
     filename = ['SNR_vs_CV_vs_CV_area_' names{k} '.csv'];
+    
     if names{k} == 'D'
-        filename = 'SNR_vs_CV_vs_CV_area_Diff.csv';
+        filename = 'script_from_paper_cv_added/SNR_vs_CV_vs_CV_area_Diff.csv';
+
     end
     
     if simulate
@@ -699,6 +705,7 @@ for k = 1:numel(names)
                 D = mu_D * ones(nc, 1);
 
                 % draw random kinetic parameters for each cell
+                %{
                 if k == 1 || k == 4
                     p = random(logndist(mu_p, mu_p * CV), nc, 1);
                 end
@@ -708,7 +715,11 @@ for k = 1:numel(names)
                 if k == 3 || k == 4
                     D = random(logndist(mu_D, mu_D * CV), nc, 1);
                 end
-              
+                %}
+                p = random(logndist(mu_p, mu_p * CV), nc, 1);
+                d = random(logndist(mu_d, mu_d * CV), nc, 1);
+                D = random(logndist(mu_D, mu_D * CV), nc, 1);
+                
                 % solve the equation
                 options = bvpset('Vectorized', 'on', 'NMax', 100*nc, 'RelTol', tol, 'AbsTol', tol);
                 
@@ -716,16 +727,15 @@ for k = 1:numel(names)
                 sol0 = bvpinit(x0, @y0);
                 
                 sol = bvp4c(@odefun, @bcfun, sol0, options);
-        
+                             
                 % add white noise
                 y = deval(sol, x);
-       
+             
                 %y = y(1,:) + normrnd(0, C(0) * CV_white(i), [1 nc]);
                 y = y(1,:) + normrnd(0, C(0) * CV_white(i), [1 length(y)]);
-
+              
                 % fit an exponential in log space in the patterning domain
                 idx = find(x >= 0 & y > 0);
-
                 param = polyfit(x(idx), log(y(idx)), 1);
                 fitted_lambda(j) = -1/param(1);
                 fitted_C0(j) = exp(param(2));
@@ -749,7 +759,7 @@ for k = 1:numel(names)
                         fitted_C0(j) = exp(mdl.Coefficients.Estimate(2)) * cosh(LP/fitted_lambda(j));
                     end
                 end
-                %{
+                
                 % plot the solution
                 if CV_white(i) == plot_CV
                     figure(f1)
@@ -759,7 +769,7 @@ for k = 1:numel(names)
                         plot(x, y(1,:), 'LineWidth', LineWidth)
                     end
                 end
-                %}
+                
             end
 
             % determine the CV of the decay length and the amplitude over the independent runs
@@ -782,7 +792,7 @@ for k = 1:numel(names)
             CV_0_lin(i) = CVfun(fitted_C0_lin);
             CV_0_SE_lin(i) = nanstd(bootstrp(nboot, CVfun, fitted_C0_lin));
         end
-        
+ 
         % write data
         if write
             writetable(table(CV_white, lambda, lambda_SE, C0, C0_SE, CV_lambda, CV_lambda_SE, CV_0, CV_0_SE, lambda_lin, lambda_SE_lin, C0_lin, C0_SE_lin, CV_lambda_lin, CV_lambda_SE_lin, CV_0_lin, CV_0_SE_lin), filename);
@@ -876,7 +886,7 @@ for k = 1:numel(names)
     
     drawnow
 end
-%}
+
  %% functions for the ODE
 % reaction-diffusion equation
 function dydx = odefun(x, y, c)
