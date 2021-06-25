@@ -1,5 +1,4 @@
 function readout_precision
-
 % options
 simulate = true; % if false, plot results from saved files instead of generating new data
 write = true; % when creating new data, should the results be written to output files?
@@ -9,7 +8,7 @@ FontSize = 18;
 
 % parameters
 tol = 1e-10; % numerical tolerance for solver and fitting
-nruns = 10; % number of independent simulation runs
+nruns = 1000; % number of independent simulation runs
 nboot = 1e4; % number of bootstrap samples for error estimation
 diameter = 4.9; % cell diameter [µm]
 mu_D = 0.033; % mean morphogen diffusion constant [µm^2/s]
@@ -38,37 +37,66 @@ fitopt = statset('TolFun', tol, 'TolX', tol);
 hill = @(x,k_hill) 1*(x ./ (x + k_hill));
 
 % high resolution k values
-k_d_small = fliplr(linspace(0.00001, 0.00009,35));
-k_d_medium = fliplr(linspace(0.0001, 0.001, 20));
-k_d_upper_medium = fliplr(linspace(0.0011, 0.01, 20));
-k_d_big = fliplr(linspace(0.011, 0.4, 25));
+k_d = logspace(log10(C(0)), log10(C(LP)), 100);
 
-k_d = [k_d_big, k_d_upper_medium, k_d_medium, k_d_small];
+CV_K = [0, 0.001, 0.1, 0.3];
 
-CV_K = [0.001, 0.1, 0.3];
+filename_pos_neg_average_lin = ['CV_K_Parameter_Tables_Hill/pos_neg_average_lin_hill.csv'];
+filename_pos_neg_average = ['CV_K_Parameter_Tables_Hill/pos_neg_average_hill.csv'];
+filename_pos_neg_cilium_lin = ['CV_K_Parameter_Tables_Hill/pos_neg_cilium_lin_hill.csv'];
+filename_pos_neg_cilium = ['CV_K_Parameter_Tables_Hill/pos_neg_cilium_hill.csv'];
+filename_pos_neg_random_lin = ['CV_K_Parameter_Tables_Hill/pos_neg_random_lin_hill.csv'];
+filename_pos_neg_random = ['CV_K_Parameter_Tables_Hill/pos_neg_random_hill.csv'];
+
+pos_neg_average_lin = NaN(length(CV_K), 2);
+pos_neg_average = NaN(length(CV_K), 2);
+pos_neg_cilium_lin = NaN(length(CV_K), 2);
+pos_neg_cilium = NaN(length(CV_K), 2);
+pos_neg_random_lin = NaN(length(CV_K), 2);
+pos_neg_random = NaN(length(CV_K), 2);
+
+
 
 for k = 1:numel(CV_K)
+    
+        ave_arr_lin_low = ones(length(k_d), 1);
+        ave_arr_low = ones(length(k_d), 1);
+        cil_arr_lin_low = ones(length(k_d), 1);
+        cil_arr_low = ones(length(k_d), 1);
+        rand_arr_low = ones(length(k_d), 1);
+        rand_arr_lin_low = ones(length(k_d), 1);
+    
+        ave_arr_lin_high = ones(length(k_d), 1);
+        ave_arr_high = ones(length(k_d), 1);
+        cil_arr_lin_high = ones(length(k_d), 1);
+        cil_arr_high = ones(length(k_d), 1);
+        rand_arr_high = ones(length(k_d), 1);
+        rand_arr_lin_high = ones(length(k_d), 1);
    
-    filename_readout_pos_average = ['CV_K_Parameter_Tables_Hill/readout_pos_average_' num2str(CV_K(k)) '_hill.csv'];
-    filename_readout_pos_cilium = ['CV_K_Parameter_Tables_Hill/readout_pos_cilium_' num2str(CV_K(k)) '_hill.csv'];
-    filename_readout_pos_random = ['CV_K_Parameter_Tables_Hill/readout_pos_random_' num2str(CV_K(k)) '_hill.csv'];
-         
-    if simulate
-        
-        mean_x_pos_average =  [];
-        mean_x_pos_random = [];
-        mean_x_pos_cilium = [];
-        
-        std_x_pos_average = [];
-        std_x_pos_random = [];
-        std_x_pos_cilium = [];
+        filename_readout_pos_average = ['CV_K_Parameter_Tables_Hill/readout_pos_average_' num2str(CV_K(k)) '_hill.csv'];
+        filename_readout_pos_cilium = ['CV_K_Parameter_Tables_Hill/readout_pos_cilium_' num2str(CV_K(k)) '_hill.csv'];
+        filename_readout_pos_random = ['CV_K_Parameter_Tables_Hill/readout_pos_random_' num2str(CV_K(k)) '_hill.csv'];
+        filename_readout_pos_average_lin = ['CV_K_Parameter_Tables_Hill/readout_pos_average_' num2str(CV_K(k)) '_hill_lin_inter.csv'];
+        filename_readout_pos_cilium_lin = ['CV_K_Parameter_Tables_Hill/readout_pos_cilium_' num2str(CV_K(k)) '_hill_lin_inter.csv'];
+        filename_readout_pos_random_lin = ['CV_K_Parameter_Tables_Hill/readout_pos_random_' num2str(CV_K(k)) '_hill_lin_inter.csv'];     
+
+        % allocatte memory to store the interp. values 
+        half_max_average_array = NaN(nruns, length(k_d));
+        half_max_cilium_array = NaN(nruns, length(k_d));
+        half_max_random_array = NaN(nruns, length(k_d));
+        half_max_average_array_lin = NaN(nruns, length(k_d));
+        half_max_cilium_array_lin = NaN(nruns, length(k_d));
+        half_max_random_array_lin = NaN(nruns, length(k_d));
                
         % loop over variabilities
         for i = 1:length(k_d)
             
-            half_max_average_array = [];
-            half_max_cilium_array = [];
-            half_max_random_array = [];
+            half_max_average_array_one_nun = NaN(1, nruns);
+            half_max_cilium_array_one_run = NaN(1, nruns);
+            half_max_random_array_one_run = NaN(1, nruns);
+            half_max_average_array_lin_one_run = NaN(1, nruns);
+            half_max_cilium_array_lin_one_run = NaN(1, nruns);
+            half_max_random_array_lin_one_run  = NaN(1, nruns);
             
             for j = 1:nruns
                 
@@ -282,64 +310,165 @@ for k = 1:numel(CV_K)
                 hill_average_conc = hill(y_sol_average, k_noisy);
                 hill_cilium = hill(y_sol_cilium, k_noisy);
            
-                %{
-   
-                half_max_average = interp1(hill_average_conc, x_sol, 0.5);
-                half_max_random = interp1(hill_random_point, x_sol, 0.5);
-                half_max_cilium = interp1(hill_cilium, x_sol, 0.5);
-                
-                %}
-                
+                half_max_average_lin = interp1(hill_average_conc, x_sol, 0.5, 'linear','extrap');
+                half_max_random_lin = interp1(hill_random_point, x_sol, 0.5, 'linear','extrap');
+                half_max_cilium_lin = interp1(hill_cilium, x_sol, 0.5, 'linear','extrap');
+                           
                 % cubic interplation 
                 half_max_average = pchip(hill_average_conc, x_sol, 0.5);
                 half_max_random = pchip(hill_random_point, rand_x_points, 0.5);
                 half_max_cilium = pchip(hill_cilium, mid_point, 0.5);
-            
                 
-                half_max_average_array = [half_max_average_array, half_max_average];
-                half_max_cilium_array = [half_max_cilium_array, half_max_cilium];
-                half_max_random_array = [half_max_random_array, half_max_random];
-
+                if half_max_average_lin < 0
+                    ave_arr_lin_low(i, 1) = 2;
+                end
+                if half_max_cilium_lin < 0
+                    cil_arr_lin_low(i, 1) = 2;
+                end
+                if half_max_random_lin < 0
+                    rand_arr_lin_low(i, 1) = 2;
+                end
+                if half_max_average < 0
+                    ave_arr_low(i, 1) = 2;
+                end
+                if half_max_cilium < 0
+                    cil_arr_low(i, 1) = 2;
+                end
+                if half_max_random < 0
+                    rand_arr_low(i, 1) = 2;
+                end
                 
+                if ((half_max_average > 245))
+                    ave_arr_high(i, 1) = 2;
+                    
+                end
+                
+                if ((half_max_cilium > 245) )
+                    cil_arr_high(i, 1) = 2;
+        
+                end
+                
+                if ((half_max_random > 245))
+                    rand_arr_high(i, 1) = 2;
+               
+                end
+                
+                if ((half_max_average_lin > 245))
+                    ave_arr_lin_high(i, 1) = 2;
+              
+                end
+                
+                if ((half_max_cilium_lin > 245))
+                    cil_arr_lin_high(i, 1) = 2;
+                    
+                end
+                
+                if ((half_max_random_lin > 245))
+                    rand_arr_lin_high(i, 1) = 2;
+                
+                end
+               
+                               
+                half_max_average_array_one_run(1,j)  = half_max_average;
+                half_max_cilium_array_one_run(1,j) = half_max_cilium;
+                half_max_random_array_one_run(1,j) = half_max_random;
+                half_max_average_array_lin_one_run(1,j) = half_max_average_lin;
+                half_max_cilium_array_lin_one_run(1,j) = half_max_cilium_lin;
+                half_max_random_array_lin_one_run(1,j)  = half_max_random_lin;
+                              
                 
             end
+           
+            half_max_average_array(:, i) =  half_max_average_array_one_run';
+            half_max_cilium_array(:, i) = half_max_cilium_array_one_run';
+            half_max_random_array(:, i) = half_max_random_array_one_run';
+            half_max_average_array_lin(:, i) =  half_max_average_array_lin_one_run';
+            half_max_cilium_array_lin(:, i) = half_max_cilium_array_lin_one_run';
+            half_max_random_array_lin(:, i) = half_max_random_array_lin_one_run';
               
-           mean_x_average = nanmean(half_max_average_array);
-           std_x_average = nanstd(half_max_average_array);
            
-           mean_x_cilium = nanmean(half_max_cilium_array); 
-           std_x_cilium = nanstd(half_max_cilium_array);
-           
-           mean_x_random = nanmean(half_max_random_array);
-           std_x_random = nanstd(half_max_random_array);
-           
-           mean_x_pos_average = [mean_x_pos_average, mean_x_average];
-           std_x_pos_average = [std_x_pos_average, std_x_average];
-           
-           mean_x_pos_cilium = [mean_x_pos_cilium, mean_x_cilium];
-           std_x_pos_cilium = [std_x_pos_cilium, std_x_cilium];
-           
-           mean_x_pos_random = [mean_x_pos_random, mean_x_random];
-           std_x_pos_random = [std_x_pos_random,std_x_random];
-            
         end
-       
+        
+        mean_x_average = nanmean(half_max_average_array);
+        std_x_average = nanstd(half_max_average_array);
+        SE_x_average = nanstd(bootstrp(nboot, SEfun, half_max_average_array));
+           
+        mean_x_cilium = nanmean(half_max_cilium_array); 
+        std_x_cilium = nanstd(half_max_cilium_array);
+        SE_x_cilium = nanstd(bootstrp(nboot, SEfun, half_max_cilium_array));
+           
+        mean_x_random = nanmean(half_max_random_array);
+        std_x_random = nanstd(half_max_random_array);
+        SE_x_random = nanstd(bootstrp(nboot, SEfun, half_max_random_array));
+           
+        mean_x_average_lin = nanmean(half_max_average_array_lin);
+        std_x_average_lin = nanstd(half_max_average_array_lin);
+        SE_x_average_lin = nanstd(bootstrp(nboot, SEfun, half_max_average_array_lin));
+                   
+        mean_x_cilium_lin = nanmean(half_max_cilium_array_lin); 
+        std_x_cilium_lin = nanstd(half_max_cilium_array_lin);
+        SE_x_cilium_lin = nanstd(bootstrp(nboot, SEfun, half_max_cilium_array_lin));
+           
+        mean_x_random_lin = nanmean(half_max_random_array_lin);
+        std_x_random_lin = nanstd(half_max_random_array_lin);
+        SE_x_random_lin = nanstd(bootstrp(nboot, SEfun, half_max_random_array_lin));
+        
+               
         % write data
         if write
-             writetable(table(k_d', mean_x_pos_average', std_x_pos_average', 'VariableNames', {'k_d', 'mean_pos_average', 'std_pos_average'}), filename_readout_pos_average);
-             writetable(table(k_d', mean_x_pos_random', std_x_pos_random', 'VariableNames', {'k_d', 'mean_pos_random', 'std_pos_random'}), filename_readout_pos_random);
-             writetable(table(k_d', mean_x_pos_cilium', std_x_pos_cilium', 'VariableNames', {'k_d', 'mean_pos_cilium', 'std_pos_cilium'}), filename_readout_pos_cilium);
+             writetable(table(k_d', mean_x_average', std_x_average',  SE_x_average', 'VariableNames', {'k_d', 'mean_pos_average', 'std_pos_average', 'SE_std'}), filename_readout_pos_average);
+             writetable(table(k_d', mean_x_random', std_x_random',SE_x_random', 'VariableNames', {'k_d', 'mean_pos_random', 'std_pos_random', 'SE_std'}), filename_readout_pos_random);
+             writetable(table(k_d', mean_x_cilium', std_x_cilium',SE_x_cilium', 'VariableNames', {'k_d', 'mean_pos_cilium', 'std_pos_cilium', 'SE_std'}), filename_readout_pos_cilium);
+             writetable(table(k_d', mean_x_average_lin', std_x_average_lin', SE_x_average_lin', 'VariableNames', {'k_d', 'mean_pos_average', 'std_pos_average', 'SE_std'}), filename_readout_pos_average_lin);
+             writetable(table(k_d', mean_x_random_lin', std_x_random_lin', SE_x_random_lin', 'VariableNames', {'k_d', 'mean_pos_random', 'std_pos_random', 'SE_std'}), filename_readout_pos_random_lin);
+             writetable(table(k_d', mean_x_cilium_lin', std_x_cilium_lin',SE_x_cilium_lin',  'VariableNames', {'k_d', 'mean_pos_cilium', 'std_pos_cilium', 'SE_std'}), filename_readout_pos_cilium_lin);
         end
-    else
+  
+        index_average_lin = max(find(ave_arr_lin_low == 2));
+        index_average =  max(find(ave_arr_low == 2));
+        index_cilium_lin = max(find(cil_arr_lin_low == 2));
+        index_cilium = max(find(cil_arr_low  == 2));
+        index_random_lin = max(find(rand_arr_lin_low  == 2));
+        index_random = max(find(rand_arr_low  == 2));
+    
+        min_x_average_lin = mean_x_average_lin(index_average_lin);
+        min_x_average = mean_x_average(index_average);
+        min_x_cilium_lin = mean_x_cilium_lin(index_cilium_lin);
+        min_x_cilium = mean_x_cilium(index_cilium);
+        min_x_random_lin = mean_x_random_lin(index_random_lin);
+        min_x_random = mean_x_random(index_random);
+    
+     index_average_lin_high = min(find(ave_arr_lin_high  == 2 ));
+     index_average_high =  min(find(ave_arr_high  == 2 ));
+     index_cilium_lin_high = min(find(cil_arr_lin_high == 2));
+     index_cilium_high = min(find(cil_arr_high == 2));
+     index_random_lin_high = max(find(rand_arr_lin_high == 2));
+     index_random_high = min(find(rand_arr_high == 2));
         
-    % read data
-   
-      
+        
+     max_x_average_lin = mean_x_average_lin(index_average_lin_high);
+     max_x_average = mean_x_average(index_average_high);
+     max_x_cilium_lin = mean_x_cilium_lin(index_cilium_lin_high);
+     max_x_cilium = mean_x_cilium(index_cilium_high);
+     max_x_random_lin = mean_x_random_lin(index_random_lin_high);
+     max_x_random = mean_x_random(index_random_high);
+    
+     pos_neg_average_lin(k, :)  =  [min_x_average_lin, max_x_average_lin];
+     pos_neg_average(k, :) = [min_x_average, max_x_average];
+     pos_neg_cilium_lin(k, :)  =  [min_x_cilium_lin,  max_x_cilium_lin];
+     pos_neg_cilium(k, :) = [min_x_cilium,  max_x_cilium];
+     pos_neg_random_lin(k, :)  =  [min_x_random_lin, max_x_random_lin];
+     pos_neg_random(k, :) = [min_x_random, max_x_random];
     end
- 
-end
 
- %% functions for the ODE
+writetable(table(CV_K', pos_neg_average_lin(:,1), pos_neg_average_lin(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_average_lin);
+writetable(table(CV_K', pos_neg_average(:,1), pos_neg_average(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_average);
+writetable(table(CV_K', pos_neg_cilium_lin(:,1), pos_neg_cilium_lin(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_cilium_lin);
+writetable(table(CV_K', pos_neg_cilium(:,1), pos_neg_cilium(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_cilium);
+writetable(table(CV_K', pos_neg_random_lin(:,1), pos_neg_random_lin(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_random_lin);
+writetable(table(CV_K', pos_neg_random(:,1), pos_neg_random(:,2), 'VariableNames', {'CV_K', 'min_pos', 'max_pos'}), filename_pos_neg_random);
+
+%% functions for the ODE
 % reaction-diffusion equation
 function dydx = odefun(x, y, c)
 dC = -y(2,:) / D(c); % mass flux: j = -D*grad(C)
